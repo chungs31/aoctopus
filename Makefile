@@ -76,12 +76,12 @@ TARGET := host
 TARGET_DIR := bin
 
 # Directories
-INC_DIRS := ../common/inc
+INC_DIRS := common/inc
 LIB_DIRS := 
 
 # Files
 INCS := $(wildcard )
-SRCS := $(wildcard host/src/*.cpp ../common/src/AOCLUtils/*.cpp)
+SRCS := $(wildcard host/src/*.cpp common/src/AOCLUtils/*.cpp)
 LIBS := rt pthread
 
 # Make it all!
