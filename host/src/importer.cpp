@@ -21,31 +21,30 @@ void weight_parser(const char *filename, vector<vector<float>> &weights) {
         while (ss >> weight) {
             curr_weights.push_back(weight);
             num++;
-            //cout << weight << endl;
             ss >> dummy;
         }
         weights.push_back(curr_weights);
-        cout << num << endl;
+        //cout << num << endl;
     }
 
     infile.close();
 }
 
+/*
 int main() {
     vector<vector<float>> weights;
 
     weight_parser("mnist_weight_dump.txt", weights);
 
-    /*
     for (auto i : weights) {
         for (auto j : i) {
             cout << j << " ";
         }
         cout << endl;
     }
-    */
 
     return 0;
 }
+*/
 
 

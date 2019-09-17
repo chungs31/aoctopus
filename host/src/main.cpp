@@ -19,20 +19,6 @@
 // This agreement shall be governed in all respects by the laws of the State of California and
 // by the laws of the United States of America.
 
-///////////////////////////////////////////////////////////////////////////////////
-// This host program executes a vector addition kernel to perform:
-//  C = A + B
-// where A, B and C are vectors with N elements.
-//
-// This host program supports partitioning the problem across multiple OpenCL
-// devices if available. If there are M available devices, the problem is
-// divided so that each device operates on N/M points. The host program
-// assumes that all devices are of the same type (that is, the same binary can
-// be used), but the code can be generalized to support different device types
-// easily.
-//
-// Verification is performed against the same computation on the host CPU.
-///////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
