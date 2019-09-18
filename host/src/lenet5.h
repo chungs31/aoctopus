@@ -8,7 +8,4 @@
 
 #pragma once
 
-#include <vector>
-
-void weight_parser(const char *filename, std::vector<std::vector<float> > &weights);
 

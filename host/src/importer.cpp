@@ -6,7 +6,7 @@
 
 using namespace std;
 
-void weight_parser(const char *filename, vector<vector<float>> &weights) {
+void weight_parser(const char *filename, vector<vector<float> > &weights) {
     ifstream infile(filename);
 
     string line;
