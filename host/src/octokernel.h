@@ -29,7 +29,11 @@ private:
     scoped_array<cl_mem> bufs;
     scoped_array<size_t> buf_lens;
     int n_bufs;
-    
+
+    std::vector<cl_mem_flags> buf_mflags;
+    int output_idx;
+    int input_idx;
+
     // Events (for in-order execution)
     //scoped_array<cl_event> write_events;
 public:
@@ -43,23 +47,50 @@ public:
                const char *_kernel_name, 
                int num_buffers, 
                std::vector<size_t> const &buffer_sizes,
-               std::vector<cl_mem_flags> const &buffer_mflags);
+               std::vector<cl_mem_flags> const &buffer_mflags,
+               int output_idx,
+               int input_idx);
     ~Octokernel();
 
     // Copy weights from STL vectors into aligned pointers (host_mems).
     //void load_weights(std::vector<std::vector<float> > &weights);
+    
+    // Copy contents of in to respective host memory in host_mems.
+    void load_buf(int buf_idx, std::vector<float> &in);
 
     // Copy from host_mems to the CL buffers (bufs).
-    void copy_host_to_bufs(cl_command_queue &q);
+    void copy_weights_to_bufs(cl_command_queue &q);
 
     // Set CL arguments
     void set_args();
 
     // Enqueue
     void enqueue_kernel(cl_command_queue &q);
+
+    // Input from vector or scoped aligned ptr. 
+    void set_input_mem(std::vector<float> &in) {
+        for (int i = 0; i < buf_lens[input_idx]; i++) {
+            host_mems[input_idx][i] = in[i];
+        }
+    };
+    
+    void set_input_mem(scoped_aligned_ptr<float> &in) {
+        for (int i = 0; i < buf_lens[input_idx]; i++) {
+            host_mems[input_idx][i] = in[i];
+        }
+    };
+
+    scoped_aligned_ptr<float> &get_output_mem() {
+        return host_mems[output_idx];
+    };
+
 };
 
-Octokernel::Octokernel(cl_context &context, cl_program &program, const char *_kernel_name, int num_buffers, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags) {
+Octokernel::Octokernel(cl_context &context, cl_program &program, const char *_kernel_name, int num_buffers, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
+    buf_mflags(buffer_mflags),
+    output_idx(output_idx),
+    input_idx(input_idx)
+{
     // Store name of kernel
     kernel_name = _kernel_name;  
 
@@ -75,7 +106,7 @@ Octokernel::Octokernel(cl_context &context, cl_program &program, const char *_ke
     
     for (int i = 0; i < n_bufs; i++) {
         // Initialize CL buffers
-        buf_lens[i] = buffer_sizes[i];
+        buf_lens[i] = buffer_sizes[i] * sizeof(float);
         bufs[i] = clCreateBuffer(context, buffer_mflags[i], buf_lens[i], NULL, &status);
         checkError(status, "Failed to create buffer for bias");
         //printf("Created buffer size %ld @ at %p with flag %lu\n", buf_lens[i], bufs[i], buffer_mflags[i]);
@@ -100,15 +131,27 @@ Octokernel::~Octokernel() {
     bufs.reset();
 }
 
-void Octokernel::copy_host_to_bufs(cl_command_queue &q) {
-    /*
-    cl_int status;
-    for (int i = 0; i < n_bufs - 1; i++) { // exclude the last buffer; this is the output
-        status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i], host_mems[i], 0, NULL, &write_events[i]);
-        checkError(status, "Failed to transfer to cl buf");
+void Octokernel::load_buf(int buf_idx, std::vector<float> &in) {
+    for (int i = 0; i < buf_lens[buf_idx]; i++) {
+        host_mems[buf_idx][i] = in[i];
     }
-    */
+}
 
+void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
+    /* Write kernel weights and biases to the device.
+     * This should only be called once.
+     */
+    cl_int status;
+
+    for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
+        if (buf_mflags[i] == CL_MEM_READ_ONLY && i != input_idx) {
+            status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i], host_mems[i], 0, NULL, NULL);
+            checkError(status, "Failed to transfer to cl buf");
+        }
+    }
+
+    // Wait until weights and biases are transferred.
+    clFinish(q);
 }
 
 void Octokernel::set_args() {
@@ -123,19 +166,16 @@ void Octokernel::set_args() {
 void Octokernel::enqueue_kernel(cl_command_queue &q) {
     cl_int status;
     cl_event kernel_event, finish_event;
-    cl_event write_events[3];
+    cl_event write_event;
 
+    printf("Enqueue on %s\n", kernel_name.c_str());
     printf("Number of buffers: %d\n", n_bufs);
     
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
-    for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
-        if (i != 2) {
-            status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i], host_mems[i], 0, NULL, &write_events[i]);
-            checkError(status, "Failed to transfer to cl buf");
-        }
-    }
+    status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx], host_mems[input_idx], 0, NULL, &write_event);
+    checkError(status, "Failed to transfer to cl buf");
 
     // set arguments
     for (unsigned i = 0; i < n_bufs; i++) {
@@ -158,19 +198,17 @@ void Octokernel::enqueue_kernel(cl_command_queue &q) {
     printf("Launching kernel\n");
 
     status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
-            &global_work_size, NULL, 2, write_events, &kernel_event); // change 3 to number of writes
+            &global_work_size, NULL, 1, &write_event, &kernel_event); // change 3 to number of writes
     checkError(status, "Failed to launch kernel");
     
     // Read the result. This the final operation.
-    status = clEnqueueReadBuffer(q, bufs[2], CL_FALSE,
-            0, buf_lens[2], host_mems[2], 1, &kernel_event, &finish_event);
+    status = clEnqueueReadBuffer(q, bufs[output_idx], CL_FALSE,
+            0, buf_lens[output_idx], host_mems[output_idx], 1, &kernel_event, &finish_event);
     checkError(status, "Failed to launch kernel");
     
     clWaitForEvents(1, &finish_event);
     
-    for (int i = 0; i < n_bufs; i++) {
-        clReleaseEvent(write_events[i]);
-    }
+    clReleaseEvent(write_event);
     clReleaseEvent(finish_event);
     clReleaseEvent(kernel_event);
 }

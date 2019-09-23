@@ -25,12 +25,16 @@
 #include <math.h>
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
+
+
 #include "importer.h"
 #include "octokernel.h"
+#include "lenet5.h"
 
 #include <vector>
 #include <iostream>
 #include <algorithm>
+
 
 using namespace aocl_utils;
 
@@ -169,21 +173,27 @@ bool init_opencl() {
 
     // Create per-device objects.
     queue.reset(num_devices);
-    kernel.reset(num_devices);
+    //kernel.reset(num_devices);
 
     for(unsigned i = 0; i < num_devices; ++i) {
         // Command queue.
         queue[i] = clCreateCommandQueue(context, device[i], CL_QUEUE_PROFILING_ENABLE, &status);
         checkError(status, "Failed to create command queue");
 
-        // Kernel.
-        const char *kernel_name = "fuse_dense_relu_kernel0";
-        kernel[i] = clCreateKernel(program, kernel_name, &status);
-        checkError(status, "Failed to create kernel");
-
-        std::vector<size_t> buffer_sizes{400*sizeof(float), 48000*sizeof(float), 120*sizeof(float), 120*sizeof(float)};
-        std::vector<cl_mem_flags> buffer_mflags{CL_MEM_READ_ONLY, CL_MEM_READ_ONLY, CL_MEM_READ_ONLY, CL_MEM_READ_ONLY};
-        octokernels.push_back(new Octokernel(context, program, kernel_name, 4, buffer_sizes, buffer_mflags));
+        // Kernel
+        for (int kernel = 0; kernel < LeNet5::num_layers; kernel++) {
+            printf("Registering new kernel index %d named %s with %d bufs\n", kernel, LeNet5::network[kernel].func_name, LeNet5::network[kernel].n_bufs);
+            octokernels.push_back(new Octokernel(
+                context, 
+                program, 
+                LeNet5::network[kernel].func_name, 
+                LeNet5::network[kernel].n_bufs, 
+                LeNet5::network[kernel].buf_sizes, 
+                LeNet5::network[kernel].buf_type, 
+                LeNet5::network[kernel].output_layer_idx,
+                LeNet5::network[kernel].input_layer_idx
+            ));
+        }
     }
 
     return true;
@@ -197,18 +207,23 @@ void init_problem() {
 
     ref_output.reset(weights[5].size());
 
-    // Generate input
-    for (int i = 0; i < 400; i++) {
-        octokernels[0]->host_mems[0][i] = rand_float();
-    }
 
-    for (int i = 0; i < 48000; i++) {
-        octokernels[0]->host_mems[1][i] = weights[4][i];
-    }
 
-    for (int i = 0; i < 120; i++) {
-        octokernels[0]->host_mems[3][i] = weights[5][i];
-    }
+    // Load weights to host memory
+    octokernels[0]->load_buf(2, weights[0]);
+    octokernels[0]->load_buf(4, weights[1]);
+    
+    octokernels[2]->load_buf(2, weights[2]);
+    octokernels[2]->load_buf(4, weights[3]);
+    
+    octokernels[5]->load_buf(1, weights[4]);
+    octokernels[5]->load_buf(3, weights[5]);
+
+    octokernels[6]->load_buf(2, weights[6]);
+    octokernels[6]->load_buf(4, weights[7]);
+    
+    octokernels[7]->load_buf(2, weights[8]);
+    octokernels[7]->load_buf(4, weights[9]);
 }
 
 void run() {
@@ -216,12 +231,19 @@ void run() {
 
     const double start_time = getCurrentTimestamp();
 
-    // Launch the problem for each device.
-    scoped_array<cl_event> kernel_event(num_devices);
-    scoped_array<cl_event> finish_event(num_devices);
-
     for(unsigned i = 0; i < num_devices; ++i) {
+        octokernels[0]->copy_weights_to_bufs(queue[i]);
+
+        // Generate input
+        std::vector<float> input(784);
+
+        for (int i = 0; i < 784; i++) {
+            input[i] = rand_float();
+        }
+        octokernels[0]->set_input_mem(input);
         octokernels[0]->enqueue_kernel(queue[i]);
+
+        printf("%f\n", octokernels[0]->host_mems[3][1]);
     }
 
     // Wait for all devices to finish.
@@ -249,16 +271,16 @@ void run() {
     for (int ax1 = 0; ax1 < 120; ++ax1) {
         sum = 0.0;
         for (int k = 0; k < 400; ++k) {
-            sum = (sum + (octokernels[0]->host_mems[0][k] * octokernels[0]->host_mems[1][((ax1 * 400) + k)]));
+            sum = (sum + (octokernels[5]->host_mems[0][k] * octokernels[5]->host_mems[1][((ax1 * 400) + k)]));
         }
-        ref_output[ax1] = std::max((sum + octokernels[0]->host_mems[3][ax1]), 0.0e+00f);
+        ref_output[ax1] = std::max((sum + octokernels[5]->host_mems[3][ax1]), 0.0e+00f);
     }
     bool pass = true;
     for(unsigned i = 0; i < num_devices && pass; ++i) {
         for(unsigned j = 0; j < 120 && pass; ++j) {
-            if(fabsf(octokernels[0]->host_mems[2][j] - ref_output[j]) > 1.0e-5f) {
+            if(fabsf(octokernels[5]->host_mems[2][j] - ref_output[j]) > 1.0e-5f) {
                 printf("Failed verification @ device %d, index %d\nOutput: %f\nReference: %f\n",
-                        i, j, octokernels[0]->host_mems[2][j], ref_output[j]);
+                        i, j, octokernels[5]->host_mems[2][j], ref_output[j]);
                 pass = false;
             }
         }
@@ -266,6 +288,8 @@ void run() {
 
     printf("\nVerification: %s\n", pass ? "PASS" : "FAIL");
 }
+
+
 
 // Free the resources allocated during initialization
 void cleanup() {
