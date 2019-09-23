@@ -6,9 +6,13 @@
  * Text file parser for importing weights trained in Keras. 
  */
 
-#pragma once
+
+#ifndef IMPORTER_H
+#define IMPORTER_H
 
 #include <vector>
 
 void weight_parser(const char *filename, std::vector<std::vector<float> > &weights);
+
+#endif
 

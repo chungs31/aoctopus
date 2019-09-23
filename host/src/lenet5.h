@@ -6,6 +6,5 @@
  * Text file parser for importing weights trained in Keras. 
  */
 
-#pragma once
 
 
