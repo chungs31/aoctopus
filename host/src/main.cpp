@@ -34,6 +34,8 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <iostream>
+#include <fstream>
 
 
 using namespace aocl_utils;
@@ -177,7 +179,7 @@ bool init_opencl() {
 
     for(unsigned i = 0; i < num_devices; ++i) {
         // Command queue.
-        queue[i] = clCreateCommandQueue(context, device[i], CL_QUEUE_PROFILING_ENABLE, &status);
+        queue[i] = clCreateCommandQueue(context, device[i], 0, &status);
         checkError(status, "Failed to create command queue");
 
         // Kernel
@@ -210,18 +212,23 @@ void init_problem() {
 
 
     // Load weights to host memory
+    printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(2, weights[0]);
     octokernels[0]->load_buf(4, weights[1]);
     
+    printf("Copying weights to host memory for layer 2\n");
     octokernels[2]->load_buf(2, weights[2]);
     octokernels[2]->load_buf(4, weights[3]);
     
+    printf("Copying weights to host memory for layer 5\n");
     octokernels[5]->load_buf(1, weights[4]);
     octokernels[5]->load_buf(3, weights[5]);
 
+    printf("Copying weights to host memory for layer 6\n");
     octokernels[6]->load_buf(2, weights[6]);
     octokernels[6]->load_buf(4, weights[7]);
     
+    printf("Copying weights to host memory for layer 7\n");
     octokernels[7]->load_buf(2, weights[8]);
     octokernels[7]->load_buf(4, weights[9]);
 }
@@ -232,18 +239,72 @@ void run() {
     const double start_time = getCurrentTimestamp();
 
     for(unsigned i = 0; i < num_devices; ++i) {
+        printf("Copying weights from host memory to cl buf for layer 0\n");
         octokernels[0]->copy_weights_to_bufs(queue[i]);
 
         // Generate input
-        std::vector<float> input(784);
+        std::vector<float> input;
 
-        for (int i = 0; i < 784; i++) {
-            input[i] = rand_float();
+
+        // Dump input
+        std::ifstream myfile("xtest0.txt");
+
+        float tmp;
+        std::string line;
+
+        // Read input
+        while (getline(myfile, line)) {
+            std::stringstream ss(line);
+            std::string field;
+            while (getline(ss, field, ',')) {
+                ss >> tmp;
+                input.push_back(tmp);
+            }
         }
+        std::cout << input.size() << std::endl;
+
+        /*
+        for (int j = 0; j < 784; j++) {
+            //input[j] = rand_float();
+            myfile >> input[j] << ",";
+        }
+        */
+        myfile.close();
+
+        printf("Setting input for layer 0\n");
         octokernels[0]->set_input_mem(input);
         octokernels[0]->enqueue_kernel(queue[i]);
 
-        printf("%f\n", octokernels[0]->host_mems[3][1]);
+        for (int k = 1; k < LeNet5::num_layers; k++) {
+            octokernels[k]->copy_weights_to_bufs(queue[i]);
+            octokernels[k]->set_input_mem(octokernels[k-1]->host_mems[octokernels[k-1]->get_output_idx()]);
+            octokernels[k]->enqueue_kernel(queue[i]);
+        }
+
+        Octokernel *last = octokernels[LeNet5::num_layers- 1];
+        int idx = last->get_output_idx();
+        printf("Prediction: \n");
+        printf("[");
+        float max_val = -100000.0;
+        int max_idx = -1000;
+        float sum = 0;
+        for (int output_idx = 0; output_idx < 10; output_idx++) {
+            if (output_idx != 9) {
+                printf("%f, ", last->host_mems[idx][output_idx]);
+            }
+            else {
+                printf("%f", last->host_mems[idx][output_idx]);
+            }
+
+            if (last->host_mems[idx][output_idx] > max_val) {
+                max_val = last->host_mems[idx][output_idx];
+                max_idx = output_idx;
+            }
+            sum += last->host_mems[idx][output_idx];
+        }
+        printf("]\n");
+        printf("Predicted number: %d\n", max_idx);
+        printf("Sum: %f\n", sum);
     }
 
     // Wait for all devices to finish.

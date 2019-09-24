@@ -84,6 +84,9 @@ public:
         return host_mems[output_idx];
     };
 
+    int get_output_idx() { return output_idx; };
+    int get_input_idx() { return input_idx; };
+
 };
 
 Octokernel::Octokernel(cl_context &context, cl_program &program, const char *_kernel_name, int num_buffers, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
@@ -143,15 +146,21 @@ void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
      */
     cl_int status;
 
+    std::vector<cl_event> write_events;
+
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
         if (buf_mflags[i] == CL_MEM_READ_ONLY && i != input_idx) {
-            status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i], host_mems[i], 0, NULL, NULL);
+            cl_event ev;
+            printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
+            status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i], host_mems[i], 0, NULL, &ev);
             checkError(status, "Failed to transfer to cl buf");
+            write_events.push_back(ev);
         }
     }
 
     // Wait until weights and biases are transferred.
-    clFinish(q);
+    cl_event *ev_ptr = &write_events[0];
+    clWaitForEvents(write_events.size(), ev_ptr);
 }
 
 void Octokernel::set_args() {
