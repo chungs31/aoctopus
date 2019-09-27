@@ -79,6 +79,10 @@ scoped_array<float> ref_output; // num_devices elements
 
 // Control whether the fast emulator should be used.
 bool use_fast_emulator = false;
+    
+scoped_array<scoped_aligned_ptr<float> > mnist_x_test;
+scoped_array<int> mnist_y_test;
+scoped_array<int> d_y_test;
 
 // Function prototypes
 float rand_float();
@@ -207,6 +211,7 @@ void init_problem() {
         checkError(-1, "No devices");
     }
 
+    import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", mnist_x_test, mnist_y_test);
     ref_output.reset(4056);
 
     // Load weights to host memory
@@ -236,6 +241,7 @@ void run() {
 
     const double start_time = getCurrentTimestamp();
 
+    /*
     scoped_aligned_ptr<float> input, zeros;
     input.reset(784);
     zeros.reset(784);
@@ -243,6 +249,7 @@ void run() {
     for (int p_i = 0; p_i < 784; p_i++) {
         zeros[p_i] = 0.0;
     }
+    */
     for(unsigned i = 0; i < num_devices; ++i) {
         //printf("Copying weights from host memory to cl buf for layer 0\n");
         for (int k = 0; k < LeNet5::num_layers; k++) {
@@ -259,6 +266,7 @@ void run() {
         std::string line;
 
         // Read input
+        /*
         int pix = 0;
         while (getline(myfile, line)) {
             std::stringstream ss(line);
@@ -268,6 +276,7 @@ void run() {
                 input[pix++] = tmp;
             }
         }
+        */
 
 
         //std::cout << input.size() << std::endl;
@@ -298,10 +307,10 @@ void run() {
             //myfile >> input[j] << ",";
         }
         */
-        myfile.close();
+        //myfile.close();
 
         printf("Setting input for layer 0\n");
-        octokernels[0]->set_input_mem(input);
+        octokernels[0]->set_input_mem(mnist_x_test[0]);
         octokernels[0]->enqueue_kernel(queue[i]);
         octokernels[0]->dbg_dump_output();
 
@@ -348,10 +357,10 @@ void run() {
     }
 
     // Wait for all devices to finish.
-    //const double end_time = getCurrentTimestamp();
+    const double end_time = getCurrentTimestamp();
 
     // Wall-clock time taken.
-    //printf("\nTime: %0.3f ms\n", (end_time - start_time) * 1e3);
+    printf("\nTime: %0.3f ms\n", (end_time - start_time) * 1e3);
 
     // Get kernel times using the OpenCL event profiling API.
     /*for(unsigned i = 0; i < num_devices; ++i) {
@@ -396,7 +405,7 @@ void run() {
         compute[((yy * 26) + xx)] = 0.000000e+00f;
         for (int ry = 0; ry < 3; ++ry) {
           for (int rx = 0; rx < 3; ++rx) {
-            compute[((yy * 26) + xx)] = (compute[((yy * 26) + xx)] + (input[((((yy + ry) * 28) + xx) + rx)] * octokernels[0]->host_mems[2][((((ax1 * 3) + ry) * 3) + rx)]));
+            compute[((yy * 26) + xx)] = (compute[((yy * 26) + xx)] + (mnist_x_test[0][((((yy + ry) * 28) + xx) + rx)] * octokernels[0]->host_mems[2][((((ax1 * 3) + ry) * 3) + rx)]));
           }
         }
       }
