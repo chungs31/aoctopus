@@ -31,7 +31,7 @@ namespace LeNet5 {
 const int num_layers = 9;
 
 Layer network[] {
-    {"fuse_conv2d_relu_kernel0", 5, {676, 784, 54, 4056, 6}, {w, r, r, w, r}, 3, 1}, 
+    {"fuse_conv2d_relu_kernel0", 5, {676, 784, 54, 4056, 6}, {rw, r, r, w, r}, 3, 1}, 
     {"fuse_avg_pool2d_kernel0", 2, {1014, 4056}, {w, r}, 0, 1}, 
     {"fuse_conv2d_relu_1_kernel0", 5, {121, 1014, 864, 1936, 16}, {w, r, r, w, r}, 3, 1},
     {"fuse_avg_pool2d_1_kernel0", 2, {400, 1924}, {w, r}, 0, 1}, 

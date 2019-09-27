@@ -13,6 +13,8 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
+#include <fstream>
 
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
@@ -58,6 +60,12 @@ public:
     // Copy contents of in to respective host memory in host_mems.
     void load_buf(int buf_idx, std::vector<float> &in);
 
+    void zero_buf(int buf_idx) {
+        for (int i = 0; i < buf_lens[buf_idx]; i++) {
+            host_mems[buf_idx][i] = 0.0;
+        }
+    };
+
     // Copy from host_mems to the CL buffers (bufs).
     void copy_weights_to_bufs(cl_command_queue &q);
 
@@ -87,6 +95,8 @@ public:
     int get_output_idx() { return output_idx; };
     int get_input_idx() { return input_idx; };
 
+    // debug functions
+    void dbg_dump_output();
 };
 
 Octokernel::Octokernel(cl_context &context, cl_program &program, const char *_kernel_name, int num_buffers, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
@@ -109,8 +119,8 @@ Octokernel::Octokernel(cl_context &context, cl_program &program, const char *_ke
     
     for (int i = 0; i < n_bufs; i++) {
         // Initialize CL buffers
-        buf_lens[i] = buffer_sizes[i] * sizeof(float);
-        bufs[i] = clCreateBuffer(context, buffer_mflags[i], buf_lens[i], NULL, &status);
+        buf_lens[i] = buffer_sizes[i];
+        bufs[i] = clCreateBuffer(context, buffer_mflags[i], buf_lens[i] * sizeof(float) , NULL, &status);
         checkError(status, "Failed to create buffer for bias");
         //printf("Created buffer size %ld @ at %p with flag %lu\n", buf_lens[i], bufs[i], buffer_mflags[i]);
 
@@ -152,7 +162,7 @@ void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
         if (buf_mflags[i] == CL_MEM_READ_ONLY && i != input_idx) {
             cl_event ev;
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
-            status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i], host_mems[i], 0, NULL, &ev);
+            status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i]* sizeof(float), host_mems[i], 0, NULL, &ev);
             checkError(status, "Failed to transfer to cl buf");
             write_events.push_back(ev);
         }
@@ -183,7 +193,7 @@ void Octokernel::enqueue_kernel(cl_command_queue &q) {
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
-    status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx], host_mems[input_idx], 0, NULL, &write_event);
+    status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
     checkError(status, "Failed to transfer to cl buf");
 
     // set arguments
@@ -212,14 +222,43 @@ void Octokernel::enqueue_kernel(cl_command_queue &q) {
     
     // Read the result. This the final operation.
     status = clEnqueueReadBuffer(q, bufs[output_idx], CL_FALSE,
-            0, buf_lens[output_idx], host_mems[output_idx], 1, &kernel_event, &finish_event);
+            0, buf_lens[output_idx]* sizeof(float), host_mems[output_idx], 1, &kernel_event, &finish_event);
     checkError(status, "Failed to launch kernel");
     
     clWaitForEvents(1, &finish_event);
     
+    clFinish(q);
     clReleaseEvent(write_event);
     clReleaseEvent(finish_event);
     clReleaseEvent(kernel_event);
+}
+
+void Octokernel::dbg_dump_output() {
+    std::string path = "activations/";
+    path += kernel_name;
+    path += ".txt";
+    std::ofstream dumpfile(path.c_str());
+
+    dumpfile << kernel_name << std::endl;
+    dumpfile << buf_lens[output_idx] << std::endl << "[";
+    for (int i = 0, counter = 0; i < buf_lens[output_idx]; i++, counter++) {
+        if (i != buf_lens[output_idx] - 1) {
+            //printf("%f, ", host_mems[output_idx][i]);
+            dumpfile << host_mems[output_idx][i] << ", ";
+        }
+        else {
+            //printf("%f", host_mems[output_idx][i]);
+            dumpfile << host_mems[output_idx][i];
+        }
+        if (counter == 3) {
+            dumpfile << std::endl;
+            counter = 0;
+        }
+    }
+    //printf("]\n");
+    dumpfile << "]" << std::endl;
+
+    dumpfile.close();
 }
 
 #endif

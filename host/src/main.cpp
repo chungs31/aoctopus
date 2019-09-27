@@ -207,9 +207,7 @@ void init_problem() {
         checkError(-1, "No devices");
     }
 
-    ref_output.reset(weights[5].size());
-
-
+    ref_output.reset(4056);
 
     // Load weights to host memory
     printf("Copying weights to host memory for layer 0\n");
@@ -238,14 +236,22 @@ void run() {
 
     const double start_time = getCurrentTimestamp();
 
+    scoped_aligned_ptr<float> input, zeros;
+    input.reset(784);
+    zeros.reset(784);
+
+    for (int p_i = 0; p_i < 784; p_i++) {
+        zeros[p_i] = 0.0;
+    }
     for(unsigned i = 0; i < num_devices; ++i) {
-        printf("Copying weights from host memory to cl buf for layer 0\n");
-        octokernels[0]->copy_weights_to_bufs(queue[i]);
+        //printf("Copying weights from host memory to cl buf for layer 0\n");
+        for (int k = 0; k < LeNet5::num_layers; k++) {
+            octokernels[k]->copy_weights_to_bufs(queue[i]);
+        }
 
         // Generate input
-        std::vector<float> input;
-
-
+        //std::vector<float> input;
+                
         // Dump input
         std::ifstream myfile("xtest0.txt");
 
@@ -253,20 +259,43 @@ void run() {
         std::string line;
 
         // Read input
+        int pix = 0;
         while (getline(myfile, line)) {
             std::stringstream ss(line);
             std::string field;
             while (getline(ss, field, ',')) {
                 ss >> tmp;
-                input.push_back(tmp);
+                input[pix++] = tmp;
             }
         }
-        std::cout << input.size() << std::endl;
+
+
+        //std::cout << input.size() << std::endl;
 
         /*
+        int max_position = -1000;
+        float mnist_maxval = -10000;
+        int counter = 0;
+        for (auto mnist : input) {
+            if (mnist > mnist_maxval) {
+                max_position = counter;
+                mnist_maxval = mnist;
+            }
+            counter++;
+        }
+        */
+        //printf("Max mnist at index %d\n", max_position);
+        /*
+        printf("input 353 %.7e \n", input[353]);
+        printf("input 354 %.7e \n", input[354]);
+        printf("input 355 %.7e \n", input[355]);
+        printf("input 356 %.7e \n", input[356]);
+        printf("input 357 %.7e \n", input[357]);
+        */
+        /*
         for (int j = 0; j < 784; j++) {
-            //input[j] = rand_float();
-            myfile >> input[j] << ",";
+            input[j] = 0.0;//rand_float();
+            //myfile >> input[j] << ",";
         }
         */
         myfile.close();
@@ -274,12 +303,23 @@ void run() {
         printf("Setting input for layer 0\n");
         octokernels[0]->set_input_mem(input);
         octokernels[0]->enqueue_kernel(queue[i]);
+        octokernels[0]->dbg_dump_output();
 
         for (int k = 1; k < LeNet5::num_layers; k++) {
-            octokernels[k]->copy_weights_to_bufs(queue[i]);
             octokernels[k]->set_input_mem(octokernels[k-1]->host_mems[octokernels[k-1]->get_output_idx()]);
             octokernels[k]->enqueue_kernel(queue[i]);
+            octokernels[k]->dbg_dump_output();
         }
+
+        /*
+        for (int k = 0; k < LeNet5::num_layers; k++) {
+            printf("layer %d\n", k);
+            for (int m = 0; m < 28; m++) {
+                printf("%.3e, ", octokernels[k]->host_mems[octokernels[k]->get_output_idx()][m]);
+            }
+            printf("\n");
+        }
+        */
 
         Octokernel *last = octokernels[LeNet5::num_layers- 1];
         int idx = last->get_output_idx();
@@ -328,7 +368,7 @@ void run() {
     */
 
     // Verify results.
-    float sum;
+    /*float sum;
     for (int ax1 = 0; ax1 < 120; ++ax1) {
         sum = 0.0;
         for (int k = 0; k < 400; ++k) {
@@ -342,6 +382,37 @@ void run() {
             if(fabsf(octokernels[5]->host_mems[2][j] - ref_output[j]) > 1.0e-5f) {
                 printf("Failed verification @ device %d, index %d\nOutput: %f\nReference: %f\n",
                         i, j, octokernels[5]->host_mems[2][j], ref_output[j]);
+                pass = false;
+            }
+        }
+    }*/
+
+    // Verifying first layer
+    float compute[676];
+
+  for (int ax1 = 0; ax1 < 6; ++ax1) {
+    for (int yy = 0; yy < 26; ++yy) {
+      for (int xx = 0; xx < 26; ++xx) {
+        compute[((yy * 26) + xx)] = 0.000000e+00f;
+        for (int ry = 0; ry < 3; ++ry) {
+          for (int rx = 0; rx < 3; ++rx) {
+            compute[((yy * 26) + xx)] = (compute[((yy * 26) + xx)] + (input[((((yy + ry) * 28) + xx) + rx)] * octokernels[0]->host_mems[2][((((ax1 * 3) + ry) * 3) + rx)]));
+          }
+        }
+      }
+    }
+    for (int ax2 = 0; ax2 < 26; ++ax2) {
+      for (int ax3 = 0; ax3 < 26; ++ax3) {
+        ref_output[((((ax1 * 26) + ax2) * 26) + ax3)] = std::max((compute[((ax2 * 26) + ax3)] + octokernels[0]->host_mems[4][ax1]), 0.000000e+00f);
+      }
+    }
+  }
+    bool pass = true;
+    for(unsigned i = 0; i < num_devices && pass; ++i) {
+        for(unsigned j = 0; j < 4056 && pass; ++j) {
+            if(fabsf(octokernels[0]->host_mems[3][j] - ref_output[j]) > 1.0e-5f) {
+                printf("Failed verification @ device %d, index %d\nOutput: %f\nReference: %f\n",
+                        i, j, octokernels[0]->host_mems[3][j], ref_output[j]);
                 pass = false;
             }
         }
