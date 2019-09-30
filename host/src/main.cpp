@@ -37,6 +37,7 @@
 #include <iostream>
 #include <fstream>
 
+#define TEST_SET_SIZE 10000
 
 using namespace aocl_utils;
 
@@ -212,7 +213,7 @@ void init_problem() {
     }
 
     import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", mnist_x_test, mnist_y_test);
-    ref_output.reset(4056);
+    //ref_output.reset(4056);
 
     // Load weights to host memory
     printf("Copying weights to host memory for layer 0\n");
@@ -240,84 +241,28 @@ void run() {
     cl_int status;
 
     const double start_time = getCurrentTimestamp();
-
-    /*
-    scoped_aligned_ptr<float> input, zeros;
-    input.reset(784);
-    zeros.reset(784);
-
-    for (int p_i = 0; p_i < 784; p_i++) {
-        zeros[p_i] = 0.0;
+    
+    // Copy the weights to global memory
+    for (int k = 0; k < LeNet5::num_layers; k++) {
+        octokernels[k]->copy_weights_to_bufs(queue[0]);
     }
-    */
-    for(unsigned i = 0; i < num_devices; ++i) {
-        //printf("Copying weights from host memory to cl buf for layer 0\n");
-        for (int k = 0; k < LeNet5::num_layers; k++) {
-            octokernels[k]->copy_weights_to_bufs(queue[i]);
+
+    scoped_array<scoped_array<float> > d_y;
+    d_y.reset(TEST_SET_SIZE);
+
+    for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
+        if (i % 100 == 0) {
+            printf("Processing iteration %d\n", i);
         }
 
-        // Generate input
-        //std::vector<float> input;
-                
-        // Dump input
-        std::ifstream myfile("xtest0.txt");
-
-        float tmp;
-        std::string line;
-
-        // Read input
-        /*
-        int pix = 0;
-        while (getline(myfile, line)) {
-            std::stringstream ss(line);
-            std::string field;
-            while (getline(ss, field, ',')) {
-                ss >> tmp;
-                input[pix++] = tmp;
-            }
-        }
-        */
-
-
-        //std::cout << input.size() << std::endl;
-
-        /*
-        int max_position = -1000;
-        float mnist_maxval = -10000;
-        int counter = 0;
-        for (auto mnist : input) {
-            if (mnist > mnist_maxval) {
-                max_position = counter;
-                mnist_maxval = mnist;
-            }
-            counter++;
-        }
-        */
-        //printf("Max mnist at index %d\n", max_position);
-        /*
-        printf("input 353 %.7e \n", input[353]);
-        printf("input 354 %.7e \n", input[354]);
-        printf("input 355 %.7e \n", input[355]);
-        printf("input 356 %.7e \n", input[356]);
-        printf("input 357 %.7e \n", input[357]);
-        */
-        /*
-        for (int j = 0; j < 784; j++) {
-            input[j] = 0.0;//rand_float();
-            //myfile >> input[j] << ",";
-        }
-        */
-        //myfile.close();
-
-        printf("Setting input for layer 0\n");
-        octokernels[0]->set_input_mem(mnist_x_test[0]);
-        octokernels[0]->enqueue_kernel(queue[i]);
-        octokernels[0]->dbg_dump_output();
+        octokernels[0]->set_input_mem(mnist_x_test[i]);
+        octokernels[0]->enqueue_kernel(queue[0]);
+        //octokernels[0]->dbg_dump_output();
 
         for (int k = 1; k < LeNet5::num_layers; k++) {
             octokernels[k]->set_input_mem(octokernels[k-1]->host_mems[octokernels[k-1]->get_output_idx()]);
-            octokernels[k]->enqueue_kernel(queue[i]);
-            octokernels[k]->dbg_dump_output();
+            octokernels[k]->enqueue_kernel(queue[0]);
+            //octokernels[k]->dbg_dump_output();
         }
 
         /*
@@ -330,30 +275,13 @@ void run() {
         }
         */
 
-        Octokernel *last = octokernels[LeNet5::num_layers- 1];
-        int idx = last->get_output_idx();
-        printf("Prediction: \n");
-        printf("[");
-        float max_val = -100000.0;
-        int max_idx = -1000;
-        float sum = 0;
-        for (int output_idx = 0; output_idx < 10; output_idx++) {
-            if (output_idx != 9) {
-                printf("%f, ", last->host_mems[idx][output_idx]);
-            }
-            else {
-                printf("%f", last->host_mems[idx][output_idx]);
-            }
+    
 
-            if (last->host_mems[idx][output_idx] > max_val) {
-                max_val = last->host_mems[idx][output_idx];
-                max_idx = output_idx;
-            }
-            sum += last->host_mems[idx][output_idx];
-        }
-        printf("]\n");
-        printf("Predicted number: %d\n", max_idx);
-        printf("Sum: %f\n", sum);
+        Octokernel *last = octokernels[LeNet5::num_layers- 1];
+        last->copy_output_from_to(d_y[i]);
+
+        /*
+        */
     }
 
     // Wait for all devices to finish.
@@ -361,6 +289,46 @@ void run() {
 
     // Wall-clock time taken.
     printf("\nTime: %0.3f ms\n", (end_time - start_time) * 1e3);
+
+    scoped_array<int> predictions(TEST_SET_SIZE);
+
+    // Verify
+    int incorrect = 0;
+    for (int i = 0; i < TEST_SET_SIZE; i++) {
+        /*
+        printf("Prediction: \n");
+        printf("[");
+        */
+        float max_val = -100000.0;
+        int max_idx = -1000;
+        float sum = 0;
+        for (int output_idx = 0; output_idx < 10; output_idx++) {
+            /*
+            if (output_idx != 9) {
+                printf("%f, ", last->host_mems[idx][output_idx]);
+            }
+            else {
+                printf("%f", last->host_mems[idx][output_idx]);
+            }
+            */
+            if (d_y[i][output_idx] > max_val) {
+                max_val = d_y[i][output_idx];
+                max_idx = output_idx;
+            }
+        }
+        predictions[i] = max_idx;
+        /*
+        printf("]\n");
+        printf("Predicted number: %d\n", max_idx);
+        printf("Sum: %f\n", sum);
+        */
+        if (predictions[i] != mnist_y_test[i]) {
+            incorrect++;
+        }
+    }
+
+
+    printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
 
     // Get kernel times using the OpenCL event profiling API.
     /*for(unsigned i = 0; i < num_devices; ++i) {
@@ -396,7 +364,8 @@ void run() {
         }
     }*/
 
-    // Verifying first layer
+    // Verifying first laye
+    /*
     float compute[676];
 
   for (int ax1 = 0; ax1 < 6; ++ax1) {
@@ -426,8 +395,7 @@ void run() {
             }
         }
     }
-
-    printf("\nVerification: %s\n", pass ? "PASS" : "FAIL");
+    */
 }
 
 

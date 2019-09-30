@@ -95,6 +95,14 @@ public:
     int get_output_idx() { return output_idx; };
     int get_input_idx() { return input_idx; };
 
+    void copy_output_from_to(scoped_array<float> &out) {
+        out.reset(buf_lens[output_idx]);
+
+        for (int i = 0; i < buf_lens[output_idx]; i++) {
+            out[i] = host_mems[output_idx][i];
+        }
+    }
+
     // debug functions
     void dbg_dump_output();
 };
@@ -171,6 +179,11 @@ void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
     // Wait until weights and biases are transferred.
     cl_event *ev_ptr = &write_events[0];
     clWaitForEvents(write_events.size(), ev_ptr);
+
+    for (auto &ev : write_events) {
+        clReleaseEvent(ev);     
+    }
+
 }
 
 void Octokernel::set_args() {
@@ -187,8 +200,8 @@ void Octokernel::enqueue_kernel(cl_command_queue &q) {
     cl_event kernel_event, finish_event;
     cl_event write_event;
 
-    printf("Enqueue on %s\n", kernel_name.c_str());
-    printf("Number of buffers: %d\n", n_bufs);
+    //printf("Enqueue on %s\n", kernel_name.c_str());
+    //printf("Number of buffers: %d\n", n_bufs);
     
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
@@ -214,7 +227,7 @@ void Octokernel::enqueue_kernel(cl_command_queue &q) {
     // the writes to the input buffers have completed.
     const size_t global_work_size = 1;
     //printf("Launching kernel for  device %d (%zd elements)\n", i, global_work_size);
-    printf("Launching kernel\n");
+    //printf("Launching kernel\n");
 
     status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
             &global_work_size, NULL, 1, &write_event, &kernel_event); // change 3 to number of writes
