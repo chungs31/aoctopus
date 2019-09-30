@@ -15,9 +15,11 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <assert.h>
 
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
+
 
 using namespace aocl_utils;
 
@@ -36,6 +38,9 @@ private:
     int output_idx;
     int input_idx;
 
+    // Status flags
+    bool weights_copied = false;
+    
     // Events (for in-order execution)
     //scoped_array<cl_event> write_events;
 public:
@@ -162,6 +167,8 @@ void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
     /* Write kernel weights and biases to the device.
      * This should only be called once.
      */
+    assert(weights_copied == false);
+
     cl_int status;
 
     std::vector<cl_event> write_events;
@@ -184,6 +191,7 @@ void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
         clReleaseEvent(ev);     
     }
 
+    weights_copied = true;
 }
 
 void Octokernel::set_args() {

@@ -265,23 +265,8 @@ void run() {
             //octokernels[k]->dbg_dump_output();
         }
 
-        /*
-        for (int k = 0; k < LeNet5::num_layers; k++) {
-            printf("layer %d\n", k);
-            for (int m = 0; m < 28; m++) {
-                printf("%.3e, ", octokernels[k]->host_mems[octokernels[k]->get_output_idx()][m]);
-            }
-            printf("\n");
-        }
-        */
-
-    
-
         Octokernel *last = octokernels[LeNet5::num_layers- 1];
         last->copy_output_from_to(d_y[i]);
-
-        /*
-        */
     }
 
     // Wait for all devices to finish.
