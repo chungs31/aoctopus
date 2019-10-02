@@ -20,22 +20,22 @@
 // by the laws of the United States of America.
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include "CL/opencl.h"
-#include "AOCLUtils/aocl_utils.h"
-
-
-#include "importer.h"
-#include "octokernel.h"
-#include "lenet5.h"
-
 #include <vector>
 #include <iostream>
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+#include "CL/opencl.h"
+#include "AOCLUtils/aocl_utils.h"
+
+#include "importer.h"
+#include "octokernel.h"
+#include "lenet5.h"
+#include "common.h"
 
 #define TEST_SET_SIZE 10000
 
@@ -50,6 +50,7 @@ scoped_array<cl_command_queue> queue; // num_devices elements
 cl_program program = NULL;
 scoped_array<cl_kernel> kernel; // num_devices elements
 
+double wall_clock_time;
 
 std::vector<Octokernel*> octokernels;
 std::vector<std::vector<float> > weights; // imported weights from Keras
@@ -91,6 +92,7 @@ bool init_opencl();
 void init_problem();
 void run();
 void cleanup();
+void profiler_output();
 
 // Entry point.
 int main(int argc, char **argv) {
@@ -124,6 +126,9 @@ int main(int argc, char **argv) {
 
     // Free the resources allocated
     cleanup();
+
+    // Print profiling times
+    profiler_output();
 
     return 0;
 }
@@ -184,7 +189,7 @@ bool init_opencl() {
 
     for(unsigned i = 0; i < num_devices; ++i) {
         // Command queue.
-        queue[i] = clCreateCommandQueue(context, device[i], 0, &status);
+        queue[i] = clCreateCommandQueue(context, device[i], CL_QUEUE_PROFILING_ENABLE, &status);
         checkError(status, "Failed to create command queue");
 
         // Kernel
@@ -200,7 +205,13 @@ bool init_opencl() {
                 LeNet5::network[kernel].output_layer_idx,
                 LeNet5::network[kernel].input_layer_idx
             ));
+            if (kernel > 0) {
+                octokernels[kernel]->set_buffer_from_prev(octokernels[kernel - 1]);
+            }
         }
+
+        octokernels[0]->set_as_input_layer();
+        octokernels[LeNet5::num_layers - 1]->set_as_output_layer();
     }
 
     return true;
@@ -225,8 +236,8 @@ void init_problem() {
     octokernels[2]->load_buf(4, weights[3]);
     
     printf("Copying weights to host memory for layer 5\n");
-    octokernels[5]->load_buf(1, weights[4]);
-    octokernels[5]->load_buf(3, weights[5]);
+    octokernels[5]->load_buf(2, weights[4]);
+    octokernels[5]->load_buf(4, weights[5]);
 
     printf("Copying weights to host memory for layer 6\n");
     octokernels[6]->load_buf(2, weights[6]);
@@ -235,11 +246,34 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[7]->load_buf(2, weights[8]);
     octokernels[7]->load_buf(4, weights[9]);
+    
+    /* Channels
+    printf("Copying weights to host memory for layer 0\n");
+    octokernels[0]->load_buf(1, weights[0]);
+    octokernels[0]->load_buf(2, weights[1]);
+    
+    printf("Copying weights to host memory for layer 2\n");
+    octokernels[2]->load_buf(0, weights[2]);
+    octokernels[2]->load_buf(1, weights[3]);
+    
+    printf("Copying weights to host memory for layer 5\n");
+    octokernels[5]->load_buf(0, weights[4]);
+    octokernels[5]->load_buf(1, weights[5]);
+
+    printf("Copying weights to host memory for layer 6\n");
+    octokernels[6]->load_buf(0, weights[6]);
+    octokernels[6]->load_buf(1, weights[7]);
+    
+    printf("Copying weights to host memory for layer 7\n");
+    octokernels[7]->load_buf(0, weights[8]);
+    octokernels[7]->load_buf(1, weights[9]);
+    */
 }
 
 void run() {
     cl_int status;
 
+    Octokernel *last = octokernels[LeNet5::num_layers- 1];
     const double start_time = getCurrentTimestamp();
     
     // Copy the weights to global memory
@@ -260,12 +294,11 @@ void run() {
         //octokernels[0]->dbg_dump_output();
 
         for (int k = 1; k < LeNet5::num_layers; k++) {
-            octokernels[k]->set_input_mem(octokernels[k-1]->host_mems[octokernels[k-1]->get_output_idx()]);
+            //octokernels[k]->set_input_mem(octokernels[k-1]->host_mems[octokernels[k-1]->get_output_idx()]);
             octokernels[k]->enqueue_kernel(queue[0]);
             //octokernels[k]->dbg_dump_output();
         }
 
-        Octokernel *last = octokernels[LeNet5::num_layers- 1];
         last->copy_output_from_to(d_y[i]);
     }
 
@@ -273,6 +306,7 @@ void run() {
     const double end_time = getCurrentTimestamp();
 
     // Wall-clock time taken.
+    wall_clock_time = (end_time - start_time) * 1e3;
     printf("\nTime: %0.3f ms\n", (end_time - start_time) * 1e3);
 
     scoped_array<int> predictions(TEST_SET_SIZE);
@@ -280,33 +314,28 @@ void run() {
     // Verify
     int incorrect = 0;
     for (int i = 0; i < TEST_SET_SIZE; i++) {
-        /*
         printf("Prediction: \n");
         printf("[");
-        */
         float max_val = -100000.0;
         int max_idx = -1000;
-        float sum = 0;
         for (int output_idx = 0; output_idx < 10; output_idx++) {
-            /*
             if (output_idx != 9) {
-                printf("%f, ", last->host_mems[idx][output_idx]);
+                printf("%f, ", d_y[i][output_idx]);
             }
             else {
-                printf("%f", last->host_mems[idx][output_idx]);
+                printf("%f", d_y[i][output_idx]);
             }
-            */
+            
             if (d_y[i][output_idx] > max_val) {
                 max_val = d_y[i][output_idx];
                 max_idx = output_idx;
             }
         }
         predictions[i] = max_idx;
-        /*
+        
         printf("]\n");
         printf("Predicted number: %d\n", max_idx);
-        printf("Sum: %f\n", sum);
-        */
+        
         if (predictions[i] != mnist_y_test[i]) {
             incorrect++;
         }
@@ -403,5 +432,14 @@ void cleanup() {
     if(context) {
         clReleaseContext(context);
     }
+}
+
+void profiler_output() {
+    printf("OpenCL event profiler output\n");
+    printf("Kernel execution time: %f ms\n", (double) kernel_time / 1000000.0);
+    printf("Write to FPGA time: %f ms\n", (double) write_time / 1000000.0);
+    printf("Read to FPGA time: %f ms\n", (double) read_time / 1000000.0);
+    printf("Wall clock time: %f ms\n", wall_clock_time);
+    printf("Idle time: %f ms\n", wall_clock_time - (double)(kernel_time+write_time+read_time)/1000000.0);
 }
 
