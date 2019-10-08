@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
     Options options(argc, argv);
 
     // Import weights from Keras
-    weight_parser("mnist_weight_dump.txt", weights);
+    weight_parser("../data/mnist_weight_dump.txt", weights);
     printf("Weights imported: size %ld\n", weights.size());
 
     // Optional argument to specify the problem size.
@@ -197,7 +197,8 @@ bool init_opencl() {
             printf("Registering new kernel index %d named %s with %d bufs\n", kernel, LeNet5::network[kernel].func_name, LeNet5::network[kernel].n_bufs);
             octokernels.push_back(new Octokernel(
                 context, 
-                program, 
+                device[i],
+                program,
                 LeNet5::network[kernel].func_name, 
                 LeNet5::network[kernel].n_bufs, 
                 LeNet5::network[kernel].buf_sizes, 
@@ -278,11 +279,13 @@ void run() {
     
     // Copy the weights to global memory
     for (int k = 0; k < LeNet5::num_layers; k++) {
-        octokernels[k]->copy_weights_to_bufs(queue[0]);
+        octokernels[k]->copy_weights_to_bufs();
     }
 
     scoped_array<scoped_array<float> > d_y;
     d_y.reset(TEST_SET_SIZE);
+
+    //cl_event prev = NULL, nullev = NULL, dummy = NULL;
 
     for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
         if (i % 100 == 0) {
@@ -290,12 +293,14 @@ void run() {
         }
 
         octokernels[0]->set_input_mem(mnist_x_test[i]);
-        octokernels[0]->enqueue_kernel(queue[0]);
-        //octokernels[0]->dbg_dump_output();
+        //prev = octokernels[0]->enqueue_kernel(prev);
+        octokernels[0]->enqueue_kernel();
+        //octokernels[0]->dbg_dump_outpt();
 
         for (int k = 1; k < LeNet5::num_layers; k++) {
             //octokernels[k]->set_input_mem(octokernels[k-1]->host_mems[octokernels[k-1]->get_output_idx()]);
-            octokernels[k]->enqueue_kernel(queue[0]);
+            octokernels[k]->enqueue_kernel();
+            //clReleaseEvent(dummy);
             //octokernels[k]->dbg_dump_output();
         }
 
@@ -435,11 +440,13 @@ void cleanup() {
 }
 
 void profiler_output() {
+#ifdef OPENCL_PROFILER_ENABLE
     printf("OpenCL event profiler output\n");
     printf("Kernel execution time: %f ms\n", (double) kernel_time / 1000000.0);
     printf("Write to FPGA time: %f ms\n", (double) write_time / 1000000.0);
     printf("Read to FPGA time: %f ms\n", (double) read_time / 1000000.0);
-    printf("Wall clock time: %f ms\n", wall_clock_time);
     printf("Idle time: %f ms\n", wall_clock_time - (double)(kernel_time+write_time+read_time)/1000000.0);
+#endif
+    printf("Wall clock time: %f ms\n", wall_clock_time);
 }
 

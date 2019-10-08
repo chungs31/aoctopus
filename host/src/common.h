@@ -7,5 +7,7 @@
 
 #include "CL/opencl.h"
 
+//#define OPENCL_PROFILER_ENABLE
+
 extern cl_ulong kernel_time, write_time, read_time;
 

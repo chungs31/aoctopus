@@ -30,6 +30,7 @@ private:
     // Kernels
     cl_kernel kernel;
     std::string kernel_name;
+    cl_command_queue q;
 
     // CL Buffers
     scoped_array<cl_mem> bufs;
@@ -47,6 +48,7 @@ private:
     
     // Events (for in-order execution)
     //scoped_array<cl_event> write_events;
+    cl_event kernel_event = NULL;
 public:
     // Host memory
     scoped_array<scoped_aligned_ptr<float> > host_mems;
@@ -54,6 +56,7 @@ public:
     
     // Public functions
     Octokernel(cl_context &context,
+               cl_device_id &device,
                cl_program &program, 
                const char *_kernel_name, 
                int num_buffers, 
@@ -76,13 +79,14 @@ public:
     };
 
     // Copy from host_mems to the CL buffers (bufs).
-    void copy_weights_to_bufs(cl_command_queue &q);
+    void copy_weights_to_bufs();
 
     // Set CL arguments
     void set_buffer_from_prev(const Octokernel *prev);
 
     // Enqueue
-    void enqueue_kernel(cl_command_queue &q);
+    //cl_event &enqueue_kernel(cl_event &dependency);
+    void enqueue_kernel();
 
     // Input from vector or scoped aligned ptr. 
     void set_input_mem(std::vector<float> &in) {
@@ -119,7 +123,7 @@ public:
     void dbg_dump_output();
 };
 
-Octokernel::Octokernel(cl_context &context, cl_program &program, const char *_kernel_name, int num_buffers, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
+Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, int num_buffers, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
     buf_mflags(buffer_mflags),
     output_idx(output_idx),
     input_idx(input_idx)
@@ -146,6 +150,13 @@ Octokernel::Octokernel(cl_context &context, cl_program &program, const char *_ke
         // Initialize CPU variables
         host_mems[i].reset(buf_lens[i]);
     }
+
+#ifdef OPENCL_PROFILER_ENABLE
+    q = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
+#else
+    q = clCreateCommandQueue(context, device, 0, &status);
+#endif
+    checkError(status, "Failed to create command queue");
 }
 
 Octokernel::~Octokernel() {
@@ -153,6 +164,7 @@ Octokernel::~Octokernel() {
     for (int i = 0; i < n_bufs; i++) {
         clReleaseMemObject(bufs[i]);
     }
+    clReleaseCommandQueue(q);
 
     //write_events.reset();
     host_mems.reset();
@@ -166,7 +178,7 @@ void Octokernel::load_buf(int buf_idx, std::vector<float> &in) {
     }
 }
 
-void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
+void Octokernel::copy_weights_to_bufs() {
     /* Write kernel weights and biases to the device.
      * This should only be called once.
      */
@@ -177,7 +189,7 @@ void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
     std::vector<cl_event> write_events;
 
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
-        if (buf_mflags[i] == CL_MEM_READ_ONLY && i != input_idx) {
+        if (buf_mflags[i] == CL_MEM_READ_ONLY && input_idx) {
             cl_event ev;
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
             status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i]* sizeof(float), host_mems[i], 0, NULL, &ev);
@@ -191,10 +203,12 @@ void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
     clWaitForEvents(write_events.size(), ev_ptr);
 
     for (auto &ev : write_events) {
+#ifdef OPENCL_PROFILER_ENABLE
         cl_ulong start, end;
         clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
         clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
         write_time += end - start;
+#endif
         clReleaseEvent(ev);     
     }
 
@@ -202,12 +216,19 @@ void Octokernel::copy_weights_to_bufs(cl_command_queue &q) {
 }
 
 void Octokernel::set_buffer_from_prev(const Octokernel *prev) {
-    bufs[input_idx] = prev->bufs[prev->output_idx];
+    if (input_idx >= 0 && prev->output_idx >= 0) {
+        bufs[input_idx] = prev->bufs[prev->output_idx];
+    }
 }
 
-void Octokernel::enqueue_kernel(cl_command_queue &q) {
+void Octokernel::enqueue_kernel() {
     cl_int status;
-    cl_event kernel_event = NULL, finish_event = NULL, write_event = NULL;
+    cl_event finish_event = NULL, write_event = NULL;
+
+    if (kernel_event) {
+        clWaitForEvents(1, &kernel_event);
+        clReleaseEvent(kernel_event);
+    }
 
     //printf("Enqueue on %s\n", kernel_name.c_str());
     //printf("Number of buffers: %d\n", n_bufs);
@@ -216,7 +237,7 @@ void Octokernel::enqueue_kernel(cl_command_queue &q) {
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
     if (input_idx >= 0 && is_input_layer) {
-        status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
+        status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_TRUE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
         checkError(status, "Failed to transfer to cl buf");
     }
 
@@ -253,13 +274,13 @@ void Octokernel::enqueue_kernel(cl_command_queue &q) {
     
     // Read the result. This the final operation.
     if (output_idx >= 0 && is_output_layer) {
-    status = clEnqueueReadBuffer(q, bufs[output_idx], CL_FALSE,
+    status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
             0, buf_lens[output_idx]* sizeof(float), host_mems[output_idx], 1, &kernel_event, &finish_event);
     checkError(status, "Failed to launch kernel");
     clWaitForEvents(1, &finish_event);
     }
    
-    clFinish(q);
+#ifdef OPENCL_PROFILER_ENABLE
     cl_ulong start, end;
     if (write_event) {
     clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
@@ -268,6 +289,7 @@ void Octokernel::enqueue_kernel(cl_command_queue &q) {
     }
 
     if (kernel_event) {
+    clFinish(q);
     clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
     clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
     kernel_time += end - start;
@@ -278,10 +300,12 @@ void Octokernel::enqueue_kernel(cl_command_queue &q) {
     clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
     read_time += end - start;
     }
+#endif
 
     if (write_event) clReleaseEvent(write_event);
-    if (kernel_event) clReleaseEvent(kernel_event);
+    //if (kernel_event) clReleaseEvent(kernel_event);
     if (finish_event) clReleaseEvent(finish_event);
+    //return kernel_event;
 }
 
 void Octokernel::dbg_dump_output() {
