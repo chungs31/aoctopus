@@ -46,9 +46,7 @@ cl_platform_id platform = NULL;
 unsigned num_devices = 0;
 scoped_array<cl_device_id> device; // num_devices elements
 cl_context context = NULL;
-scoped_array<cl_command_queue> queue; // num_devices elements
 cl_program program = NULL;
-scoped_array<cl_kernel> kernel; // num_devices elements
 
 double wall_clock_time;
 
@@ -75,9 +73,6 @@ std::vector<std::vector<float> > weights; // imported weights from Keras
 // 7 84
 // 8 840
 // 9 10
-
-// Problem data
-scoped_array<float> ref_output; // num_devices elements
 
 // Control whether the fast emulator should be used.
 bool use_fast_emulator = false;
@@ -183,15 +178,7 @@ bool init_opencl() {
     status = clBuildProgram(program, 0, NULL, "", NULL, NULL);
     checkError(status, "Failed to build program");
 
-    // Create per-device objects.
-    queue.reset(num_devices);
-    //kernel.reset(num_devices);
-
     for(unsigned i = 0; i < num_devices; ++i) {
-        // Command queue.
-        queue[i] = clCreateCommandQueue(context, device[i], CL_QUEUE_PROFILING_ENABLE, &status);
-        checkError(status, "Failed to create command queue");
-
         // Kernel
         for (int kernel = 0; kernel < LeNet5::num_layers; kernel++) {
             printf("Registering new kernel index %d named %s with %d bufs\n", kernel, LeNet5::network[kernel].func_name, LeNet5::network[kernel].n_bufs);
@@ -228,6 +215,7 @@ void init_problem() {
     //ref_output.reset(4056);
 
     // Load weights to host memory
+    
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(2, weights[0]);
     octokernels[0]->load_buf(4, weights[1]);
@@ -282,54 +270,53 @@ void run() {
         octokernels[k]->copy_weights_to_bufs();
     }
 
-    scoped_array<scoped_array<float> > d_y;
+    scoped_array<scoped_aligned_ptr<float> > d_y;
     d_y.reset(TEST_SET_SIZE);
-
-    //cl_event prev = NULL, nullev = NULL, dummy = NULL;
 
     for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
         if (i % 100 == 0) {
-            printf("Processing iteration %d\n", i);
+            printf("%5d/%d\r", i, TEST_SET_SIZE);
+            fflush(stdout);
         }
 
+        // Write input to host memory. Will be copied to buffer in enqueue.
         octokernels[0]->set_input_mem(mnist_x_test[i]);
-        //prev = octokernels[0]->enqueue_kernel(prev);
-        octokernels[0]->enqueue_kernel();
-        //octokernels[0]->dbg_dump_outpt();
 
-        for (int k = 1; k < LeNet5::num_layers; k++) {
-            //octokernels[k]->set_input_mem(octokernels[k-1]->host_mems[octokernels[k-1]->get_output_idx()]);
+        // Enqueue all kernels in order.
+        for (int k = 0; k < LeNet5::num_layers; k++) {
             octokernels[k]->enqueue_kernel();
-            //clReleaseEvent(dummy);
-            //octokernels[k]->dbg_dump_output();
         }
 
+        // Copy output. Blocking call -- maybe multithread this later?
         last->copy_output_from_to(d_y[i]);
     }
+    printf("\n");
 
     // Wait for all devices to finish.
     const double end_time = getCurrentTimestamp();
 
     // Wall-clock time taken.
     wall_clock_time = (end_time - start_time) * 1e3;
-    printf("\nTime: %0.3f ms\n", (end_time - start_time) * 1e3);
 
     scoped_array<int> predictions(TEST_SET_SIZE);
 
     // Verify
     int incorrect = 0;
     for (int i = 0; i < TEST_SET_SIZE; i++) {
-        printf("Prediction: \n");
-        printf("[");
+        
+        //printf("Prediction: \n");
+        //printf("[");
         float max_val = -100000.0;
         int max_idx = -1000;
         for (int output_idx = 0; output_idx < 10; output_idx++) {
+            /*
             if (output_idx != 9) {
                 printf("%f, ", d_y[i][output_idx]);
             }
             else {
                 printf("%f", d_y[i][output_idx]);
             }
+            */
             
             if (d_y[i][output_idx] > max_val) {
                 max_val = d_y[i][output_idx];
@@ -338,8 +325,8 @@ void run() {
         }
         predictions[i] = max_idx;
         
-        printf("]\n");
-        printf("Predicted number: %d\n", max_idx);
+        //printf("]\n");
+        //printf("Predicted number: %d\n", max_idx);
         
         if (predictions[i] != mnist_y_test[i]) {
             incorrect++;
@@ -425,12 +412,6 @@ void cleanup() {
         delete obj;
     }
 
-    for(unsigned i = 0; i < num_devices; ++i) {
-        if(queue && queue[i]) {
-            clReleaseCommandQueue(queue[i]);
-        }
-    }
-
     if(program) {
         clReleaseProgram(program);
     }
@@ -447,6 +428,6 @@ void profiler_output() {
     printf("Read to FPGA time: %f ms\n", (double) read_time / 1000000.0);
     printf("Idle time: %f ms\n", wall_clock_time - (double)(kernel_time+write_time+read_time)/1000000.0);
 #endif
-    printf("Wall clock time: %f ms\n", wall_clock_time);
+    printf("Wall clock time: %0.3f ms\n", wall_clock_time);
 }
 

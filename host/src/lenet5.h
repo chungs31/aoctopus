@@ -6,6 +6,9 @@
  * LeNet buffer definitions related to ../device/aocl.cl.
  */
 
+#ifndef LENET5_H
+#define LENET5_H
+
 #include <vector>
 #include <stdlib.h>
 #include "CL/opencl.h"
@@ -43,7 +46,7 @@ Layer network[] {
     {"fuse_softmax_kernel0", 4, {1, 10, 1, 10}, {w, r, w, w}, 3, 1}
 };
 
-Layer channeled_network[] {
+Layer channel_network[] {
     {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
     {"fuse_avg_pool2d_kernel0", 0, {}, {}, -1, -1}, 
     {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
@@ -56,4 +59,6 @@ Layer channeled_network[] {
 };
 
 }
+
+#endif
 

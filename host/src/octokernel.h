@@ -16,10 +16,13 @@
 #include <iostream>
 #include <fstream>
 #include <assert.h>
+#include <cstring>
 
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
 #include "common.h"
+#include "CL/cl_ext_intelfpga.h"
+#include "lenet5.h"
 
 cl_ulong kernel_time = 0, write_time = 0, read_time = 0;
 
@@ -28,9 +31,10 @@ using namespace aocl_utils;
 class Octokernel {
 private:
     // Kernels
+    int id;
     cl_kernel kernel;
     std::string kernel_name;
-    cl_command_queue q;
+    static cl_command_queue q;
 
     // CL Buffers
     scoped_array<cl_mem> bufs;
@@ -47,8 +51,9 @@ private:
     bool is_output_layer = false;
     
     // Events (for in-order execution)
-    //scoped_array<cl_event> write_events;
-    cl_event kernel_event = NULL;
+    static cl_event kernel_events[LeNet5::num_layers];
+    static int num_kernels; 
+
 public:
     // Host memory
     scoped_array<scoped_aligned_ptr<float> > host_mems;
@@ -108,12 +113,9 @@ public:
     int get_output_idx() { return output_idx; };
     int get_input_idx() { return input_idx; };
 
-    void copy_output_from_to(scoped_array<float> &out) {
+    void copy_output_from_to(scoped_aligned_ptr<float> &out) {
         out.reset(buf_lens[output_idx]);
-
-        for (int i = 0; i < buf_lens[output_idx]; i++) {
-            out[i] = host_mems[output_idx][i];
-        }
+        std::memcpy(out, host_mems[output_idx], buf_lens[output_idx] * sizeof(float));
     }
 
     void set_as_input_layer() { is_input_layer = true; };
@@ -122,6 +124,12 @@ public:
     // debug functions
     void dbg_dump_output();
 };
+    
+cl_event Octokernel::kernel_events[LeNet5::num_layers] = {NULL};
+
+cl_command_queue Octokernel::q;
+
+int Octokernel::num_kernels = 0; 
 
 Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, int num_buffers, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
     buf_mflags(buffer_mflags),
@@ -132,6 +140,7 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     kernel_name = _kernel_name;  
 
     // Initialize kernel
+    id = num_kernels++;
     cl_int status;
     kernel = clCreateKernel(program, _kernel_name, &status);
     checkError(status, "Failed to create kernel");
@@ -223,21 +232,16 @@ void Octokernel::set_buffer_from_prev(const Octokernel *prev) {
 
 void Octokernel::enqueue_kernel() {
     cl_int status;
-    cl_event finish_event = NULL, write_event = NULL;
-
-    if (kernel_event) {
-        clWaitForEvents(1, &kernel_event);
-        clReleaseEvent(kernel_event);
-    }
+    cl_event kernel_event = NULL, finish_event = NULL, write_event = NULL;
 
     //printf("Enqueue on %s\n", kernel_name.c_str());
-    //printf("Number of buffers: %d\n", n_bufs);
+    //printf("Number of buffers: %d\n",n_bufs);
     
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
     if (input_idx >= 0 && is_input_layer) {
-        status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_TRUE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
+        status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
         checkError(status, "Failed to transfer to cl buf");
     }
 
@@ -258,8 +262,6 @@ void Octokernel::enqueue_kernel() {
     // Events are used to ensure that the kernel is not launched until
     // the writes to the input buffers have completed.
     const size_t global_work_size = 1;
-    //printf("Launching kernel for  device %d (%zd elements)\n", i, global_work_size);
-    //printf("Launching kernel\n");
 
     if (write_event) {
     status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
@@ -277,33 +279,36 @@ void Octokernel::enqueue_kernel() {
     status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
             0, buf_lens[output_idx]* sizeof(float), host_mems[output_idx], 1, &kernel_event, &finish_event);
     checkError(status, "Failed to launch kernel");
-    clWaitForEvents(1, &finish_event);
     }
    
 #ifdef OPENCL_PROFILER_ENABLE
     cl_ulong start, end;
+    clFinish(q);
+
     if (write_event) {
-    clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-    clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-    write_time += end - start;
+        clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        write_time += end - start;
     }
 
     if (kernel_event) {
-    clFinish(q);
-    clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-    clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-    kernel_time += end - start;
+#ifdef INTEL_PROFILER_ENABLE
+        clGetProfileInfoIntelFPGA(kernel_events[id]);
+#endif
+        clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        kernel_time += end - start;
     }
     
     if (finish_event) {
-    clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-    clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-    read_time += end - start;
+        clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        read_time += end - start;
     }
 #endif
 
     if (write_event) clReleaseEvent(write_event);
-    //if (kernel_event) clReleaseEvent(kernel_event);
+    if (kernel_event) clReleaseEvent(kernel_event);
     if (finish_event) clReleaseEvent(finish_event);
     //return kernel_event;
 }
