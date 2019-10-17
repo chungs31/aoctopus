@@ -198,7 +198,7 @@ void Octokernel::copy_weights_to_bufs() {
     std::vector<cl_event> write_events;
 
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
-        if (buf_mflags[i] == CL_MEM_READ_ONLY && input_idx) {
+        if (buf_mflags[i] == CL_MEM_READ_ONLY) {
             cl_event ev;
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
             status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i]* sizeof(float), host_mems[i], 0, NULL, &ev);
@@ -318,6 +318,11 @@ void Octokernel::dbg_dump_output() {
     path += kernel_name;
     path += ".txt";
     std::ofstream dumpfile(path.c_str());
+    
+    cl_int status;
+    status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
+            0, buf_lens[output_idx]* sizeof(float), host_mems[output_idx], 0, NULL, NULL);
+    checkError(status, "Failed to launch kernel");
 
     dumpfile << kernel_name << std::endl;
     dumpfile << buf_lens[output_idx] << std::endl << "[";

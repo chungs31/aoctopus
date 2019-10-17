@@ -215,7 +215,28 @@ void init_problem() {
     //ref_output.reset(4056);
 
     // Load weights to host memory
+    /*
+    printf("Copying weights to host memory for layer 0\n");
+    octokernels[0]->load_buf(1, weights[0]);
+    octokernels[0]->load_buf(2, weights[1]);
     
+    printf("Copying weights to host memory for layer 2\n");
+    octokernels[2]->load_buf(1, weights[2]);
+    octokernels[2]->load_buf(2, weights[3]);
+    
+    printf("Copying weights to host memory for layer 5\n");
+    octokernels[5]->load_buf(1, weights[4]);
+    octokernels[5]->load_buf(2, weights[5]);
+
+    printf("Copying weights to host memory for layer 6\n");
+    octokernels[6]->load_buf(1, weights[6]);
+    octokernels[6]->load_buf(2, weights[7]);
+    
+    printf("Copying weights to host memory for layer 7\n");
+    octokernels[7]->load_buf(1, weights[8]);
+    octokernels[7]->load_buf(2, weights[9]);
+    */
+    /*
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(2, weights[0]);
     octokernels[0]->load_buf(4, weights[1]);
@@ -235,8 +256,8 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[7]->load_buf(2, weights[8]);
     octokernels[7]->load_buf(4, weights[9]);
-    
-    /* Channels
+    */ 
+    ///* Channels
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(1, weights[0]);
     octokernels[0]->load_buf(2, weights[1]);
@@ -256,7 +277,7 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[7]->load_buf(0, weights[8]);
     octokernels[7]->load_buf(1, weights[9]);
-    */
+    //*/
 }
 
 void run() {
@@ -285,6 +306,7 @@ void run() {
         // Enqueue all kernels in order.
         for (int k = 0; k < LeNet5::num_layers; k++) {
             octokernels[k]->enqueue_kernel();
+            //octokernels[k]->dbg_dump_output();
         }
 
         // Copy output. Blocking call -- maybe multithread this later?
