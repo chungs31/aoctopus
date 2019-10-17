@@ -290,6 +290,7 @@ void run() {
     for (int k = 0; k < LeNet5::num_layers; k++) {
         octokernels[k]->copy_weights_to_bufs();
     }
+    Octokernel::wait_for_write_queue();
 
     scoped_array<scoped_aligned_ptr<float> > d_y;
     d_y.reset(TEST_SET_SIZE);

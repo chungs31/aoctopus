@@ -34,7 +34,9 @@ private:
     int id;
     cl_kernel kernel;
     std::string kernel_name;
-    static cl_command_queue q;
+    cl_command_queue q;
+
+    static cl_command_queue write_queue;
 
     // CL Buffers
     scoped_array<cl_mem> bufs;
@@ -85,6 +87,7 @@ public:
 
     // Copy from host_mems to the CL buffers (bufs).
     void copy_weights_to_bufs();
+    static void wait_for_write_queue();
 
     // Set CL arguments
     void set_buffer_from_prev(const Octokernel *prev);
@@ -98,12 +101,16 @@ public:
         for (int i = 0; i < buf_lens[input_idx]; i++) {
             host_mems[input_idx][i] = in[i];
         }
+        //std::memcpy(host_mems[input_idx], in, buf_lens[input_idx] * sizeof(float));
     };
     
     void set_input_mem(scoped_aligned_ptr<float> &in) {
+        /*
         for (int i = 0; i < buf_lens[input_idx]; i++) {
             host_mems[input_idx][i] = in[i];
         }
+        */
+        std::memcpy(host_mems[input_idx], in, buf_lens[input_idx] * sizeof(float));
     };
 
     scoped_aligned_ptr<float> &get_output_mem() {
@@ -127,7 +134,7 @@ public:
     
 cl_event Octokernel::kernel_events[LeNet5::num_layers] = {NULL};
 
-cl_command_queue Octokernel::q;
+cl_command_queue Octokernel::write_queue = NULL;
 
 int Octokernel::num_kernels = 0; 
 
@@ -160,6 +167,17 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
         host_mems[i].reset(buf_lens[i]);
     }
 
+    // This queue is for weight/bias buffer copying only.
+    if (!write_queue) {
+#ifdef OPENCL_PROFILER_ENABLE
+        write_queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
+#else
+        write_queue = clCreateCommandQueue(context, device, 0, &status);
+#endif
+    }
+    checkError(status, "Failed to create command queue");
+
+    // Queue for kernel.
 #ifdef OPENCL_PROFILER_ENABLE
     q = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
 #else
@@ -195,33 +213,21 @@ void Octokernel::copy_weights_to_bufs() {
 
     cl_int status;
 
-    std::vector<cl_event> write_events;
-
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
         if (buf_mflags[i] == CL_MEM_READ_ONLY) {
             cl_event ev;
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
-            status = clEnqueueWriteBuffer(q, bufs[i], CL_FALSE, 0, buf_lens[i]* sizeof(float), host_mems[i], 0, NULL, &ev);
+            status = clEnqueueWriteBuffer(write_queue, bufs[i], CL_FALSE, 0, buf_lens[i] * sizeof(float), host_mems[i], 0, NULL, &ev);
             checkError(status, "Failed to transfer to cl buf");
-            write_events.push_back(ev);
         }
     }
 
-    // Wait until weights and biases are transferred.
-    cl_event *ev_ptr = &write_events[0];
-    clWaitForEvents(write_events.size(), ev_ptr);
-
-    for (auto &ev : write_events) {
-#ifdef OPENCL_PROFILER_ENABLE
-        cl_ulong start, end;
-        clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-        clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-        write_time += end - start;
-#endif
-        clReleaseEvent(ev);     
-    }
-
+    // This is non-blocking! Call wait after this
     weights_copied = true;
+}
+
+void Octokernel::wait_for_write_queue() {
+    clFinish(write_queue);
 }
 
 void Octokernel::set_buffer_from_prev(const Octokernel *prev) {
