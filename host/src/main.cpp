@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <thread>
+#include <functional>
 
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
@@ -36,8 +38,6 @@
 #include "octokernel.h"
 #include "lenet5.h"
 #include "common.h"
-
-#define TEST_SET_SIZE 10000
 
 using namespace aocl_utils;
 
@@ -81,6 +81,8 @@ scoped_array<scoped_aligned_ptr<float> > mnist_x_test;
 scoped_array<int> mnist_y_test;
 scoped_array<int> d_y_test;
 
+int TEST_SET_SIZE = 10000;
+
 // Function prototypes
 float rand_float();
 bool init_opencl();
@@ -88,10 +90,12 @@ void init_problem();
 void run();
 void cleanup();
 void profiler_output();
+void pcie_bandwidth_test();
 
 // Entry point.
 int main(int argc, char **argv) {
     Options options(argc, argv);
+
 
     // Import weights from Keras
     weight_parser("../data/mnist_weight_dump.txt", weights);
@@ -107,6 +111,10 @@ int main(int argc, char **argv) {
         use_fast_emulator = options.get<bool>("fast-emulator");
     }
 
+    if(options.has("n")) {
+        TEST_SET_SIZE = options.get<int>("n");
+    }
+
     // Initialize OpenCL.
     if(!init_opencl()) {
         return -1;
@@ -115,7 +123,12 @@ int main(int argc, char **argv) {
     // Initialize the problem data.
     // Requires the number of devices to be known.
     init_problem();
+    
 
+    /* pcie bandwidth test */
+    //pcie_bandwidth_test();
+    //return 0;
+    //
     // Run the kernel.
     run();
 
@@ -129,6 +142,91 @@ int main(int argc, char **argv) {
 }
 
 /////// HELPER FUNCTIONS ///////
+//
+void pcie_bandwidth_test() {
+    std::vector<int> sizes = {8,16,32,64,128,256,512,1024,2048,4096,8192,16834,32768,65536,131072,
+        262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432};
+    //std::vector<cl_mem_flags> flags = {CL_MEM_READ_WRITE, CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY}; 
+    std::vector<cl_mem_flags> flags = {CL_MEM_READ_WRITE}; 
+    cl_int status;
+        
+    cl_command_queue q = clCreateCommandQueue(context, device[0], CL_QUEUE_PROFILING_ENABLE, &status);
+    checkError(status, "Failed to create cq");
+
+    printf("MEM_FLAG, n_elements, bytes, write time, copy time, read time, write speed, copy speed, read speed\n");
+    
+    for (auto &memflag : flags) {
+        for (auto &size : sizes) {
+            cl_mem d_buf = clCreateBuffer(context, memflag, size * sizeof(float), NULL, &status);
+            checkError(status, "Failed to create test buffer");
+            cl_mem d_copy_buf = clCreateBuffer(context, memflag, size * sizeof(float), NULL, &status);
+            checkError(status, "Failed to create test buffer");
+            
+            cl_ulong write_time, copy_time, read_time;
+            cl_ulong start, end;
+
+            scoped_aligned_ptr<float> h_buf, h_copy_buf;
+            h_buf.reset(size);
+            h_copy_buf.reset(size);
+
+            for (int i = 0; i < size; i++) {
+                h_buf[i] = rand_float();
+            }
+
+            cl_event read_event, copy_event, write_event;
+
+            for (int j = 0; j < 100; j++) {
+                status = clEnqueueWriteBuffer(q, d_buf, CL_TRUE, 0, size * sizeof(float), h_buf, 0, NULL, &write_event);
+                checkError(status, "Failed to write");
+                status = clEnqueueCopyBuffer(q, d_buf, d_copy_buf, 0, 0, size * sizeof(float), 1, &write_event, &copy_event);
+                checkError(status, "Failed to copy");
+                status = clEnqueueReadBuffer(q, d_copy_buf, CL_TRUE, 0, size * sizeof(float), h_copy_buf, 1, &copy_event, &read_event);
+                checkError(status, "Failed to read");
+
+                clFinish(q);
+
+                status = clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+                checkError(status, "Failed to get things");
+                status = clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+                write_time += end - start;
+                status = clGetEventProfilingInfo(copy_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+                status = clGetEventProfilingInfo(copy_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+                copy_time += end - start;
+                status = clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+                status = clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+                read_time += end - start;
+                
+                clReleaseEvent(read_event);
+                clReleaseEvent(copy_event);
+                clReleaseEvent(write_event);
+            }
+
+            write_time /= 100;
+            copy_time /= 100;
+            read_time /= 100;
+
+
+            double numbytes = (double) (size * sizeof(float));
+            printf("%d, %8d, %8d, %0.4f, %0.4f, %0.4f, %0.4f, %0.4f, %0.4f\n", 
+                    (int) memflag, (int) size, (int) numbytes, 
+                    ((double) write_time) / 1000000, // ms
+                    ((double) copy_time) / 1000000, 
+                    ((double) read_time) / 1000000,
+                    1000 * (double)(numbytes / (double) write_time), // MB/s
+                    1000 * (double)(numbytes / (double) copy_time), 
+                    1000 * (double)(numbytes / (double) read_time));
+
+
+            clReleaseMemObject(d_buf);
+            clReleaseMemObject(d_copy_buf);
+            h_buf.reset();
+            h_copy_buf.reset();
+        }
+    }
+
+    clReleaseCommandQueue(q);
+}
+
 
 // Randomly generate a floating-point number between -10 and 10.
 float rand_float() {
@@ -177,6 +275,12 @@ bool init_opencl() {
     // Build the program that was just created.
     status = clBuildProgram(program, 0, NULL, "", NULL, NULL);
     checkError(status, "Failed to build program");
+
+    // Get some info
+    cl_uint alignment; 
+    status = clGetDeviceInfo(device[0], CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(cl_uint), &alignment, NULL);
+    checkError(status, "Failed to get alignment info");
+    printf("Device mem base addr alignment: %d\n", (int) alignment);
 
     for(unsigned i = 0; i < num_devices; ++i) {
         // Kernel
@@ -257,7 +361,7 @@ void init_problem() {
     octokernels[7]->load_buf(2, weights[8]);
     octokernels[7]->load_buf(4, weights[9]);
     */ 
-    ///* Channels
+    /* Channels
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(1, weights[0]);
     octokernels[0]->load_buf(2, weights[1]);
@@ -277,7 +381,28 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[7]->load_buf(0, weights[8]);
     octokernels[7]->load_buf(1, weights[9]);
-    //*/
+    */
+
+    ///* Channels with autorun
+    printf("Copying weights to host memory for layer 0\n");
+    octokernels[0]->load_buf(1, weights[0]);
+    octokernels[0]->load_buf(2, weights[1]);
+    
+    printf("Copying weights to host memory for layer 2\n");
+    octokernels[1]->load_buf(0, weights[2]);
+    octokernels[1]->load_buf(1, weights[3]);
+    
+    printf("Copying weights to host memory for layer 5\n");
+    octokernels[2]->load_buf(0, weights[4]);
+    octokernels[2]->load_buf(1, weights[5]);
+
+    printf("Copying weights to host memory for layer 6\n");
+    octokernels[3]->load_buf(0, weights[6]);
+    octokernels[3]->load_buf(1, weights[7]);
+    
+    printf("Copying weights to host memory for layer 7\n");
+    octokernels[4]->load_buf(0, weights[8]);
+    octokernels[4]->load_buf(1, weights[9]);
 }
 
 void run() {
@@ -294,7 +419,19 @@ void run() {
 
     scoped_array<scoped_aligned_ptr<float> > d_y;
     d_y.reset(TEST_SET_SIZE);
+    for (int i = 0; i < TEST_SET_SIZE; i++) {
+        d_y[i].reset(10);
+    }
 
+    /*
+    for (int x = 0; x < TEST_SET_SIZE; x++) {
+        for (int y = 0; y < 784; y++) {
+            octokernels[0]->host_mems[octokernels[0]->get_input_idx()][x * 784 + y];
+        }
+    }
+    */
+
+    //std::thread read_thread = std::thread(&Octokernel::copy_output_from_to_fcn, last, std::ref(d_y)); 
     for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
         if (i % 100 == 0) {
             printf("%5d/%d\r", i, TEST_SET_SIZE);
@@ -306,13 +443,20 @@ void run() {
 
         // Enqueue all kernels in order.
         for (int k = 0; k < LeNet5::num_layers; k++) {
+            //if (k == LeNet5::num_layers - 1 && read_thread.joinable()) { // last iter
+            //    read_thread.join();
+            //}
             octokernels[k]->enqueue_kernel();
             //octokernels[k]->dbg_dump_output();
         }
 
         // Copy output. Blocking call -- maybe multithread this later?
         last->copy_output_from_to(d_y[i]);
+        //read_thread = std::thread(&Octokernel::copy_output_from_to, last, std::ref(d_y[i]));
+        //read_thread.detach();
     }
+    //printf("%d copied, %d ready\n", last->num_copied, last->num_ready);
+    //read_thread.join();
     printf("\n");
 
     // Wait for all devices to finish.
@@ -446,10 +590,15 @@ void cleanup() {
 void profiler_output() {
 #ifdef OPENCL_PROFILER_ENABLE
     printf("OpenCL event profiler output\n");
-    printf("Kernel execution time: %f ms\n", (double) kernel_time / 1000000.0);
+    double sum = 0;
+    for (int kernel = 0; kernel < LeNet5::num_layers; kernel++) {
+        sum += octokernels[kernel]->kernel_time;
+        printf("Kernel %d execution time: %f ms\n", kernel, (double) octokernels[kernel]->kernel_time / 1000000.0);
+    }
+    printf("Total Kernel execution time: %f ms\n", (double) sum / 1000000.0);
     printf("Write to FPGA time: %f ms\n", (double) write_time / 1000000.0);
     printf("Read to FPGA time: %f ms\n", (double) read_time / 1000000.0);
-    printf("Idle time: %f ms\n", wall_clock_time - (double)(kernel_time+write_time+read_time)/1000000.0);
+    printf("Idle time: %f ms\n", wall_clock_time - (double)(sum+write_time+read_time)/1000000.0);
 #endif
     printf("Wall clock time: %0.3f ms\n", wall_clock_time);
 }

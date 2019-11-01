@@ -31,7 +31,8 @@ struct Layer {
 
 namespace LeNet5 {
 
-const int num_layers = 9;
+//const int num_layers = 9;
+const int num_layers = 6;
 
 Layer nnetwork[] {
     {"fuse_conv2d_relu_kernel0", 5, {676, 784, 54, 4056, 6}, {rw, r, r, w, r}, 3, 1}, 
@@ -46,12 +47,33 @@ Layer nnetwork[] {
     {"fuse_softmax_kernel0", 4, {1, 10, 1, 10}, {w, r, w, w}, 3, 1}
 };
 
-Layer network[] {
+Layer channel_network[] {
     {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
     {"fuse_avg_pool2d_kernel0", 0, {}, {}, -1, -1}, 
     {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
     {"fuse_avg_pool2d_1_kernel0", 0, {}, {}, -1, -1}, 
     {"fuse_transpose_flatten_kernel0", 0, {}, {}, -1, -1},
+    {"fuse_dense_relu_kernel0", 2, {48000, 120}, {r, r}, -1, -1},
+    {"fuse_dense_relu_1_kernel0", 2, {10080, 84}, {r, r}, -1, -1},
+    {"fuse_dense_kernel0", 2, {840, 10}, {r, r}, -1, -1},
+    {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
+};
+
+Layer c_autorun_network[] {
+    {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
+    //{"fuse_avg_pool2d_kernel0", 0, {}, {}, -1, -1}, 
+    {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
+    //{"fuse_avg_pool2d_1_kernel0", 0, {}, {}, -1, -1}, 
+    //{"fuse_transpose_flatten_kernel0", 0, {}, {}, -1, -1},
+    {"fuse_dense_relu_kernel0", 2, {48000, 120}, {r, r}, -1, -1},
+    {"fuse_dense_relu_1_kernel0", 2, {10080, 84}, {r, r}, -1, -1},
+    {"fuse_dense_kernel0", 2, {840, 10}, {r, r}, -1, -1},
+    {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
+};
+
+Layer network[] {
+    {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
+    {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
     {"fuse_dense_relu_kernel0", 2, {48000, 120}, {r, r}, -1, -1},
     {"fuse_dense_relu_1_kernel0", 2, {10080, 84}, {r, r}, -1, -1},
     {"fuse_dense_kernel0", 2, {840, 10}, {r, r}, -1, -1},

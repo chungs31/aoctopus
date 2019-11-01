@@ -24,7 +24,7 @@
 #include "CL/cl_ext_intelfpga.h"
 #include "lenet5.h"
 
-cl_ulong kernel_time = 0, write_time = 0, read_time = 0;
+cl_ulong write_time = 0, read_time = 0;
 
 using namespace aocl_utils;
 
@@ -35,6 +35,11 @@ private:
     cl_kernel kernel;
     std::string kernel_name;
     cl_command_queue q;
+
+    // stuff to keep const
+    cl_device_id device;
+    cl_program program;
+
 
     static cl_command_queue write_queue;
 
@@ -51,12 +56,18 @@ private:
     bool weights_copied = false;
     bool is_input_layer = false;
     bool is_output_layer = false;
+    bool inputs_copied = false;
     
     // Events (for in-order execution)
-    static cl_event kernel_events[LeNet5::num_layers];
+    //static cl_event kernel_events[LeNet5::num_layers];
     static int num_kernels; 
 
+    // For read-back
+
 public:
+    cl_ulong kernel_time = 0;
+    static int num_copied;
+    volatile static int num_ready;
     // Host memory
     scoped_array<scoped_aligned_ptr<float> > host_mems;
     //scoped_array<float> output;
@@ -121,8 +132,20 @@ public:
     int get_input_idx() { return input_idx; };
 
     void copy_output_from_to(scoped_aligned_ptr<float> &out) {
-        out.reset(buf_lens[output_idx]);
+        //out.reset(buf_lens[output_idx]);
         std::memcpy(out, host_mems[output_idx], buf_lens[output_idx] * sizeof(float));
+    }
+    
+    void copy_output_from_to_fcn(scoped_array<scoped_aligned_ptr<float> > &out) {
+        while (num_copied < TEST_SET_SIZE) {
+            if (num_ready > num_copied) {
+                //for (int i = num_copied; i < num_ready; i++) {
+                //std::cout << num_ready << ", " << num_copied << std::endl;
+                std::memcpy(out[num_copied], host_mems[output_idx], buf_lens[output_idx] * sizeof(float));
+                //}
+                num_copied++;
+            }
+        }
     }
 
     void set_as_input_layer() { is_input_layer = true; };
@@ -132,14 +155,19 @@ public:
     void dbg_dump_output();
 };
     
-cl_event Octokernel::kernel_events[LeNet5::num_layers] = {NULL};
+//cl_event Octokernel::kernel_events[LeNet5::num_layers] = {NULL};
 
 cl_command_queue Octokernel::write_queue = NULL;
 
-int Octokernel::num_kernels = 0; 
+int Octokernel::num_kernels = 0;
+int Octokernel::num_copied = 0;
+volatile int Octokernel::num_ready = 0;
 
 Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, int num_buffers, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
+    device(device),
+    program(program),
     buf_mflags(buffer_mflags),
+
     output_idx(output_idx),
     input_idx(input_idx)
 {
@@ -187,13 +215,17 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
 }
 
 Octokernel::~Octokernel() {
-    clReleaseKernel(kernel);
+    if (kernel) 
+        clReleaseKernel(kernel);
+    if (q) 
+        clReleaseCommandQueue(q);
+    if (write_queue)
+        clReleaseCommandQueue(write_queue);
+
     for (int i = 0; i < n_bufs; i++) {
+        host_mems[i].reset();
         clReleaseMemObject(bufs[i]);
     }
-    clReleaseCommandQueue(q);
-
-    //write_events.reset();
     host_mems.reset();
     buf_lens.reset();
     bufs.reset();
@@ -215,14 +247,15 @@ void Octokernel::copy_weights_to_bufs() {
 
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
         if (buf_mflags[i] == CL_MEM_READ_ONLY) {
-            cl_event ev;
+            //cl_event ev;
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
-            status = clEnqueueWriteBuffer(write_queue, bufs[i], CL_FALSE, 0, buf_lens[i] * sizeof(float), host_mems[i], 0, NULL, &ev);
+            status = clEnqueueWriteBuffer(write_queue, bufs[i], CL_FALSE, 0, buf_lens[i] * sizeof(float), host_mems[i], 0, NULL, NULL);
             checkError(status, "Failed to transfer to cl buf");
         }
     }
 
     // This is non-blocking! Call wait after this
+    enqueue_kernel(); //copy to local/registers
     weights_copied = true;
 }
 
@@ -246,16 +279,29 @@ void Octokernel::enqueue_kernel() {
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
-    if (input_idx >= 0 && is_input_layer) {
+    if (input_idx >= 0 && is_input_layer && !inputs_copied) {
         status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
         checkError(status, "Failed to transfer to cl buf");
+        //inputs_copied = true;
     }
 
+    int tmp = 1;
     // set arguments
     for (unsigned i = 0; i < n_bufs; i++) {
         status = clSetKernelArg(kernel, i, sizeof(cl_mem), &bufs[i]);
         checkError(status, "Failed to set argument %d", i);
     }
+    /*
+    if (id != num_kernels - 1) {
+        if (weights_copied) {
+            status = clSetKernelArg(kernel, n_bufs, sizeof(int), &tmp);
+        }
+        else {
+            tmp = 0;
+            status = clSetKernelArg(kernel, n_bufs, sizeof(int), &tmp);
+        }
+    }
+    */
 
     // Enqueue kernel.
     // Use a global work size corresponding to the number of elements to add
@@ -285,13 +331,19 @@ void Octokernel::enqueue_kernel() {
     status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
             0, buf_lens[output_idx]* sizeof(float), host_mems[output_idx], 1, &kernel_event, &finish_event);
     checkError(status, "Failed to launch kernel");
+    num_ready++;
     }
    
 #ifdef OPENCL_PROFILER_ENABLE
     cl_ulong start, end;
     clFinish(q);
 
+    //clGetProfileDataDeviceIntelFPGA(device, program, true, true, (cl_bool) NULL, (size_t) NULL, (void *) NULL, (size_t) NULL, (cl_int *) NULL);
+
     if (write_event) {
+#ifdef INTEL_PROFILER_ENABLE
+        clGetProfileInfoIntelFPGA(write_event);
+#endif
         clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
         clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
         write_time += end - start;
@@ -299,7 +351,7 @@ void Octokernel::enqueue_kernel() {
 
     if (kernel_event) {
 #ifdef INTEL_PROFILER_ENABLE
-        clGetProfileInfoIntelFPGA(kernel_events[id]);
+        clGetProfileInfoIntelFPGA(kernel_event);
 #endif
         clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
         clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
@@ -307,6 +359,9 @@ void Octokernel::enqueue_kernel() {
     }
     
     if (finish_event) {
+#ifdef INTEL_PROFILER_ENABLE
+        clGetProfileInfoIntelFPGA(finish_event);
+#endif
         clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
         clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
         read_time += end - start;
@@ -351,6 +406,6 @@ void Octokernel::dbg_dump_output() {
 
     dumpfile.close();
 }
-
+    
 #endif
 

@@ -1,15 +1,3 @@
-
-#pragma OPENCL EXTENSION cl_intel_channels : enable
-
-channel int ch0 __attribute__((depth(64)));
-channel int ch1 __attribute__((depth(64)));
-channel int ch2 __attribute__((depth(64)));
-channel int ch3 __attribute__((depth(64)));
-channel int ch4 __attribute__((depth(64)));
-channel int ch5 __attribute__((depth(64)));
-channel int ch6 __attribute__((depth(64)));
-channel int ch7 __attribute__((depth(64)));
-
 __kernel void fuse_conv2d_relu_kernel0(__global float* restrict compute, __global float* restrict input0, __global float* restrict input1, __global float* restrict T_relu, __global float* restrict input2) {
   for (int ax1 = 0; ax1 < 6; ++ax1) {
     for (int yy = 0; yy < 26; ++yy) {
@@ -30,13 +18,9 @@ __kernel void fuse_conv2d_relu_kernel0(__global float* restrict compute, __globa
       }
     }
   }
-
-  write_channel_intel(ch0, 1);
 }
 
 __kernel void fuse_avg_pool2d_kernel0(__global float* restrict tensor, __global float* restrict input0) {
-  int dummy = read_channel_intel(ch0);
-
   for (int ax1 = 0; ax1 < 6; ++ax1) {
     for (int ax2 = 0; ax2 < 13; ++ax2) {
       for (int ax3 = 0; ax3 < 13; ++ax3) {
@@ -51,13 +35,9 @@ __kernel void fuse_avg_pool2d_kernel0(__global float* restrict tensor, __global 
       }
     }
   }
-
-  write_channel_intel(ch1, 1);
 }
 
 __kernel void fuse_conv2d_relu_1_kernel0(__global float* restrict compute, __global float* restrict input0, __global float* restrict input1, __global float* restrict T_relu, __global float* restrict input2) {
-  int dummy = read_channel_intel(ch1);
-
   for (int ax1 = 0; ax1 < 16; ++ax1) {
     for (int yy = 0; yy < 11; ++yy) {
       for (int xx = 0; xx < 11; ++xx) {
@@ -80,12 +60,9 @@ __kernel void fuse_conv2d_relu_1_kernel0(__global float* restrict compute, __glo
       }
     }
   }
-  write_channel_intel(ch2, 1);
 }
 
 __kernel void fuse_avg_pool2d_1_kernel0(__global float* restrict tensor, __global float* restrict input0) {
-  int dummy = read_channel_intel(ch2);
-
   for (int ax1 = 0; ax1 < 16; ++ax1) {
     for (int ax2 = 0; ax2 < 5; ++ax2) {
       for (int ax3 = 0; ax3 < 5; ++ax3) {
@@ -100,31 +77,28 @@ __kernel void fuse_avg_pool2d_1_kernel0(__global float* restrict tensor, __globa
       }
     }
   }
-  write_channel_intel(ch3, 1);
 }
 
 __kernel void fuse_transpose_flatten_kernel0(__global float* restrict tensor, __global float* restrict input0) {
-  int dummy = read_channel_intel(ch3);
   for (int ax0_ax1_fused_inner = 0; ax0_ax1_fused_inner < 400; ++ax0_ax1_fused_inner) {
     tensor[ax0_ax1_fused_inner] = input0[(((ax0_ax1_fused_inner % 16) * 25) + (ax0_ax1_fused_inner / 16))];
   }
-  write_channel_intel(ch4, 1);
 }
 
 __kernel void fuse_dense_relu_kernel0(__global float* restrict T_dense, __global float* restrict input0, __global float* restrict input1, __global float* restrict T_relu, __global float* restrict input2) {
-  int dummy = read_channel_intel(ch4);
-  for (int ax1 = 0; ax1 < 120; ++ax1) {
-    T_dense[0] = 0.000000e+00f;
-    for (int k = 0; k < 400; ++k) {
-      T_dense[0] = (T_dense[0] + (input0[k] * input1[((ax1 * 400) + k)]));
-    }
-    T_relu[ax1] = max((T_dense[0] + input2[ax1]), 0.000000e+00f);
+  int ax1 = get_global_id(0);
+
+  float sum = 0.0e+00f;
+  // 120 outer loop
+  for (int k = 0; k < 400; ++k) {
+    sum += input0[k] * input1[(ax1*400) + k];
   }
-  write_channel_intel(ch5, 1);
+
+  T_relu[ax1] = max(sum + input2[ax1], 0.0e+00f);
 }
 
 __kernel void fuse_dense_relu_1_kernel0(__global float* restrict T_dense, __global float* restrict input0, __global float* restrict input1, __global float* restrict T_relu, __global float* restrict input2) {
-  int dummy = read_channel_intel(ch5);
+  /*
   for (int ax1 = 0; ax1 < 84; ++ax1) {
     T_dense[0] = 0.000000e+00f;
     for (int k = 0; k < 120; ++k) {
@@ -132,23 +106,39 @@ __kernel void fuse_dense_relu_1_kernel0(__global float* restrict T_dense, __glob
     }
     T_relu[ax1] = max((T_dense[0] + input2[ax1]), 0.000000e+00f);
   }
-  write_channel_intel(ch6, 1);
+  */
+  
+  int ax1 = get_global_id(0);
+
+  float sum = 0.0e+00f;
+  // 84 outer loop
+  for (int k = 0; k < 120; ++k) {
+    sum += input0[k] * input1[(ax1*120) + k];
+  }
+
+  T_relu[ax1] = max(sum + input2[ax1], 0.0e+00f);
 }
 
 __kernel void fuse_dense_kernel0(__global float* restrict T_dense, __global float* restrict input0, __global float* restrict input1, __global float* restrict compute, __global float* restrict input2) {
-  int dummy = read_channel_intel(ch6);
-  for (int j = 0; j < 10; ++j) {
+  /*for (int j = 0; j < 10; ++j) {
     T_dense[0] = 0.000000e+00f;
     for (int k = 0; k < 84; ++k) {
       T_dense[0] = (T_dense[0] + (input0[k] * input1[((j * 84) + k)]));
     }
     compute[j] = (T_dense[0] + input2[j]);
+  }*/
+  int j = get_global_id(0);
+
+  float sum = 0.0e+00f;
+  // 120 outer loop
+  for (int k = 0; k < 84; ++k) {
+    sum += input0[k] * input1[(j*84) + k];
   }
-  write_channel_intel(ch7, 1);
+
+  compute[j] = sum + input2[j];
 }
 
 __kernel void fuse_softmax_kernel0(__global float* restrict tensor, __global float* restrict input0, __global float* restrict tensor1, __global float* restrict tensor2) {
-  int dummy = read_channel_intel(ch7);
   for (int ax1 = 0; ax1 < 10; ++ax1) {
     tensor[0] = -3.402823e+38f;
     #pragma unroll

@@ -1,14 +1,23 @@
 
 #pragma OPENCL EXTENSION cl_intel_channels : enable
 
-channel float ch0 __attribute__((depth(4056)));
+/*channel float ch0 __attribute__((depth(4056)));
 channel float ch1 __attribute__((depth(1014)));
 channel float ch2 __attribute__((depth(1936)));
 channel float ch3 __attribute__((depth(400)));
 channel float ch4 __attribute__((depth(400)));
 channel float ch5 __attribute__((depth(120)));
 channel float ch6 __attribute__((depth(84)));
-channel float ch7 __attribute__((depth(10)));
+channel float ch7 __attribute__((depth(10)));*/
+
+channel float ch0 __attribute__((depth(12168)));
+channel float ch1 __attribute__((depth(3042)));
+channel float ch2 __attribute__((depth(5808)));
+channel float ch3 __attribute__((depth(1200)));
+channel float ch4 __attribute__((depth(1200)));
+channel float ch5 __attribute__((depth(360)));
+channel float ch6 __attribute__((depth(252)));
+channel float ch7 __attribute__((depth(30)));
 
 __kernel void fuse_conv2d_relu_kernel0(
     __global const float* restrict input0, 
@@ -164,18 +173,26 @@ __kernel void fuse_dense_relu_kernel0(
 ) {
   float in[400];
   float out[120];
+  
   for (int i = 0; i < 400; i++) {
       in[i] = read_channel_intel(ch4);      
   }
 
-  #pragma unroll 2
+  int ind = 0;
   for (int ax1 = 0; ax1 < 120; ++ax1) {
     float sum = 0.000000e+00f;
-    #pragma unroll 10
+    float w_buf[400];
+    
+    for (int j = 0; j < 400; j++) {
+        w_buf[j] = input1[ind + j];
+    }
+
+    #pragma unroll
     for (int k = 0; k < 400; ++k) {
-      sum += in[k] * input1[((ax1 * 400) + k)];
+      sum += in[k] * w_buf[k];
     }
     out[ax1] = max((sum + input2[ax1]), 0.000000e+00f);
+    ind += 400;
   }
   
   for (int i = 0; i < 120; i++) {
@@ -193,13 +210,20 @@ __kernel void fuse_dense_relu_1_kernel0(
       in[i] = read_channel_intel(ch5);      
   }
 
+  int ind = 0;
   for (int ax1 = 0; ax1 < 84; ++ax1) {
     float sum = 0.000000e+00f;
-    #pragma unroll 10
+    float w_buf[120];
+    
+    for (int j = 0; j < 120; j++) {
+        w_buf[j] = input1[ind + j];
+    }
+    #pragma unroll
     for (int k = 0; k < 120; ++k) {
-      sum += in[k] * input1[((ax1 * 120) + k)];
+      sum += in[k] * w_buf[k];
     }
     out[ax1] = max((sum + input2[ax1]), 0.000000e+00f);
+    ind += 120;
   }
   
   for (int i = 0; i < 84; i++) {
@@ -218,13 +242,22 @@ __kernel void fuse_dense_kernel0(
       in[i] = read_channel_intel(ch6);      
   }
 
+  int ind = 0;
   for (int j = 0; j < 10; ++j) {
     float sum = 0.000000e+00f;
-    #pragma unroll 4
-    for (int k = 0; k < 84; ++k) {
-      sum += in[k] * input1[((j * 84) + k)];
+    float w_buf[84];
+
+    for (int j = 0; j < 84; j++) {
+        w_buf[j] = input1[ind + j];
     }
+
+    #pragma unroll
+    for (int k = 0; k < 84; ++k) {
+      sum += in[k] * w_buf[k];
+    }
+
     out[j] = (sum + input2[j]);
+    ind += 84; 
   }
 
   for (int i = 0; i < 10; i++) {
