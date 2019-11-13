@@ -13,6 +13,7 @@ __kernel void fuse_conv2d_relu_kernel0(__global float* restrict compute, __globa
       }
     }
     for (int ax2 = 0; ax2 < 26; ++ax2) {
+      #pragma unroll
       for (int ax3 = 0; ax3 < 26; ++ax3) {
         T_relu[((((ax1 * 26) + ax2) * 26) + ax3)] = max((compute[((ax2 * 26) + ax3)] + input2[ax1]), 0.000000e+00f);
       }
@@ -23,6 +24,7 @@ __kernel void fuse_conv2d_relu_kernel0(__global float* restrict compute, __globa
 __kernel void fuse_avg_pool2d_kernel0(__global float* restrict tensor, __global float* restrict input0) {
   for (int ax1 = 0; ax1 < 6; ++ax1) {
     for (int ax2 = 0; ax2 < 13; ++ax2) {
+      #pragma unroll
       for (int ax3 = 0; ax3 < 13; ++ax3) {
         tensor[((((ax1 * 13) + ax2) * 13) + ax3)] = 0.000000e+00f;
         #pragma unroll
@@ -86,8 +88,10 @@ __kernel void fuse_transpose_flatten_kernel0(__global float* restrict tensor, __
 }
 
 __kernel void fuse_dense_relu_kernel0(__global float* restrict T_dense, __global float* restrict input0, __global float* restrict input1, __global float* restrict T_relu, __global float* restrict input2) {
+  #pragma unroll 2
   for (int ax1 = 0; ax1 < 120; ++ax1) {
     T_dense[0] = 0.000000e+00f;
+    #pragma unroll 10 
     for (int k = 0; k < 400; ++k) {
       T_dense[0] = (T_dense[0] + (input0[k] * input1[((ax1 * 400) + k)]));
     }
@@ -98,6 +102,7 @@ __kernel void fuse_dense_relu_kernel0(__global float* restrict T_dense, __global
 __kernel void fuse_dense_relu_1_kernel0(__global float* restrict T_dense, __global float* restrict input0, __global float* restrict input1, __global float* restrict T_relu, __global float* restrict input2) {
   for (int ax1 = 0; ax1 < 84; ++ax1) {
     T_dense[0] = 0.000000e+00f;
+    #pragma unroll 10 
     for (int k = 0; k < 120; ++k) {
       T_dense[0] = (T_dense[0] + (input0[k] * input1[((ax1 * 120) + k)]));
     }
@@ -108,6 +113,7 @@ __kernel void fuse_dense_relu_1_kernel0(__global float* restrict T_dense, __glob
 __kernel void fuse_dense_kernel0(__global float* restrict T_dense, __global float* restrict input0, __global float* restrict input1, __global float* restrict compute, __global float* restrict input2) {
   for (int j = 0; j < 10; ++j) {
     T_dense[0] = 0.000000e+00f;
+    #pragma unroll 4
     for (int k = 0; k < 84; ++k) {
       T_dense[0] = (T_dense[0] + (input0[k] * input1[((j * 84) + k)]));
     }
@@ -116,6 +122,7 @@ __kernel void fuse_dense_kernel0(__global float* restrict T_dense, __global floa
 }
 
 __kernel void fuse_softmax_kernel0(__global float* restrict tensor, __global float* restrict input0, __global float* restrict tensor1, __global float* restrict tensor2) {
+  #pragma unroll
   for (int ax1 = 0; ax1 < 10; ++ax1) {
     tensor[0] = -3.402823e+38f;
     #pragma unroll
