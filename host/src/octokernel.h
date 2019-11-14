@@ -34,7 +34,12 @@ private:
     int id;
     cl_kernel kernel;
     std::string kernel_name;
-    cl_command_queue q;
+#ifdef CONCURRENT_EXECUTION
+    cl_command_queue q = NULL;
+#else
+    static cl_command_queue q;
+#endif
+
 
     // stuff to keep const
     cl_device_id device;
@@ -155,7 +160,9 @@ public:
     void dbg_dump_output();
 };
     
-//cl_event Octokernel::kernel_events[LeNet5::num_layers] = {NULL};
+#ifndef CONCURRENT_EXECUTION
+cl_command_queue Octokernel::q = NULL;
+#endif
 
 cl_command_queue Octokernel::write_queue = NULL;
 
@@ -206,11 +213,13 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     checkError(status, "Failed to create command queue");
 
     // Queue for kernel.
+    if (!q) {
 #ifdef OPENCL_PROFILER_ENABLE
-    q = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
+        q = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
 #else
-    q = clCreateCommandQueue(context, device, 0, &status);
+        q = clCreateCommandQueue(context, device, 0, &status);
 #endif
+    }
     checkError(status, "Failed to create command queue");
 }
 

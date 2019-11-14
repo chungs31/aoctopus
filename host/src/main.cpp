@@ -361,7 +361,7 @@ void init_problem() {
     octokernels[7]->load_buf(2, weights[8]);
     octokernels[7]->load_buf(4, weights[9]);
     */ 
-    /* Channels
+    ///* Channels
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(1, weights[0]);
     octokernels[0]->load_buf(2, weights[1]);
@@ -381,9 +381,9 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[7]->load_buf(0, weights[8]);
     octokernels[7]->load_buf(1, weights[9]);
-    */
+    //*/
 
-    ///* Channels with autorun
+    /* Channels with autorun
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(1, weights[0]);
     octokernels[0]->load_buf(2, weights[1]);
@@ -403,6 +403,7 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[4]->load_buf(0, weights[8]);
     octokernels[4]->load_buf(1, weights[9]);
+    */
 }
 
 void run() {

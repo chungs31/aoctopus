@@ -7,6 +7,8 @@
 
 #include "CL/opencl.h"
 
+#define CONCURRENT_EXECUTION
+
 //#define OPENCL_PROFILER_ENABLE
 //#define INTEL_PROFILER_ENABLE
 
