@@ -84,13 +84,12 @@ scoped_array<int> d_y_test;
 int TEST_SET_SIZE = 10000;
 
 // Function prototypes
-float rand_float();
 bool init_opencl();
 void init_problem();
 void run();
 void cleanup();
 void profiler_output();
-void pcie_bandwidth_test();
+//void pcie_bandwidth_test();
 
 // Entry point.
 int main(int argc, char **argv) {
@@ -142,97 +141,6 @@ int main(int argc, char **argv) {
 }
 
 /////// HELPER FUNCTIONS ///////
-//
-void pcie_bandwidth_test() {
-    std::vector<int> sizes = {8,16,32,64,128,256,512,1024,2048,4096,8192,16834,32768,65536,131072,
-        262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432};
-    //std::vector<cl_mem_flags> flags = {CL_MEM_READ_WRITE, CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY}; 
-    std::vector<cl_mem_flags> flags = {CL_MEM_READ_WRITE}; 
-    cl_int status;
-        
-    cl_command_queue q = clCreateCommandQueue(context, device[0], CL_QUEUE_PROFILING_ENABLE, &status);
-    checkError(status, "Failed to create cq");
-
-    printf("MEM_FLAG, n_elements, bytes, write time, copy time, read time, write speed, copy speed, read speed\n");
-    
-    for (auto &memflag : flags) {
-        for (auto &size : sizes) {
-            cl_mem d_buf = clCreateBuffer(context, memflag, size * sizeof(float), NULL, &status);
-            checkError(status, "Failed to create test buffer");
-            cl_mem d_copy_buf = clCreateBuffer(context, memflag, size * sizeof(float), NULL, &status);
-            checkError(status, "Failed to create test buffer");
-            
-            cl_ulong write_time, copy_time, read_time;
-            cl_ulong start, end;
-
-            scoped_aligned_ptr<float> h_buf, h_copy_buf;
-            h_buf.reset(size);
-            h_copy_buf.reset(size);
-
-            for (int i = 0; i < size; i++) {
-                h_buf[i] = rand_float();
-            }
-
-            cl_event read_event, copy_event, write_event;
-
-            for (int j = 0; j < 100; j++) {
-                status = clEnqueueWriteBuffer(q, d_buf, CL_TRUE, 0, size * sizeof(float), h_buf, 0, NULL, &write_event);
-                checkError(status, "Failed to write");
-                status = clEnqueueCopyBuffer(q, d_buf, d_copy_buf, 0, 0, size * sizeof(float), 1, &write_event, &copy_event);
-                checkError(status, "Failed to copy");
-                status = clEnqueueReadBuffer(q, d_copy_buf, CL_TRUE, 0, size * sizeof(float), h_copy_buf, 1, &copy_event, &read_event);
-                checkError(status, "Failed to read");
-
-                clFinish(q);
-
-                status = clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-                checkError(status, "Failed to get things");
-                status = clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-                write_time += end - start;
-                status = clGetEventProfilingInfo(copy_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-                status = clGetEventProfilingInfo(copy_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-                copy_time += end - start;
-                status = clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
-                status = clGetEventProfilingInfo(read_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-                read_time += end - start;
-                
-                clReleaseEvent(read_event);
-                clReleaseEvent(copy_event);
-                clReleaseEvent(write_event);
-            }
-
-            write_time /= 100;
-            copy_time /= 100;
-            read_time /= 100;
-
-
-            double numbytes = (double) (size * sizeof(float));
-            printf("%d, %8d, %8d, %0.4f, %0.4f, %0.4f, %0.4f, %0.4f, %0.4f\n", 
-                    (int) memflag, (int) size, (int) numbytes, 
-                    ((double) write_time) / 1000000, // ms
-                    ((double) copy_time) / 1000000, 
-                    ((double) read_time) / 1000000,
-                    1000 * (double)(numbytes / (double) write_time), // MB/s
-                    1000 * (double)(numbytes / (double) copy_time), 
-                    1000 * (double)(numbytes / (double) read_time));
-
-
-            clReleaseMemObject(d_buf);
-            clReleaseMemObject(d_copy_buf);
-            h_buf.reset();
-            h_copy_buf.reset();
-        }
-    }
-
-    clReleaseCommandQueue(q);
-}
-
-
-// Randomly generate a floating-point number between -10 and 10.
-float rand_float() {
-    return float(rand()) / float(RAND_MAX) * 20.0f - 10.0f;
-}
-
 // Initializes the OpenCL objects.
 bool init_opencl() {
     cl_int status;
@@ -340,7 +248,7 @@ void init_problem() {
     octokernels[7]->load_buf(1, weights[8]);
     octokernels[7]->load_buf(2, weights[9]);
     */
-    /*
+    ///*
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(2, weights[0]);
     octokernels[0]->load_buf(4, weights[1]);
@@ -360,8 +268,8 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[7]->load_buf(2, weights[8]);
     octokernels[7]->load_buf(4, weights[9]);
-    */ 
-    ///* Channels
+    // */ 
+    /* Channels
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(1, weights[0]);
     octokernels[0]->load_buf(2, weights[1]);
@@ -381,7 +289,7 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[7]->load_buf(0, weights[8]);
     octokernels[7]->load_buf(1, weights[9]);
-    //*/
+    */
 
     /* Channels with autorun
     printf("Copying weights to host memory for layer 0\n");
@@ -423,14 +331,6 @@ void run() {
     for (int i = 0; i < TEST_SET_SIZE; i++) {
         d_y[i].reset(10);
     }
-
-    /*
-    for (int x = 0; x < TEST_SET_SIZE; x++) {
-        for (int y = 0; y < 784; y++) {
-            octokernels[0]->host_mems[octokernels[0]->get_input_idx()][x * 784 + y];
-        }
-    }
-    */
 
     //std::thread read_thread = std::thread(&Octokernel::copy_output_from_to_fcn, last, std::ref(d_y)); 
     for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
@@ -501,75 +401,7 @@ void run() {
         }
     }
 
-
     printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
-
-    // Get kernel times using the OpenCL event profiling API.
-    /*for(unsigned i = 0; i < num_devices; ++i) {
-        cl_ulong time_ns = getStartEndTime(kernel_event[i]);
-        printf("Kernel time (device %d): %0.3f ms\n", i, double(time_ns) * 1e-6);
-    }*/
-
-    // Release all events.
-    /*
-    for(unsigned i = 0; i < num_devices; ++i) {
-        clReleaseEvent(kernel_event[i]);
-        clReleaseEvent(finish_event[i]);
-    }
-    */
-
-    // Verify results.
-    /*float sum;
-    for (int ax1 = 0; ax1 < 120; ++ax1) {
-        sum = 0.0;
-        for (int k = 0; k < 400; ++k) {
-            sum = (sum + (octokernels[5]->host_mems[0][k] * octokernels[5]->host_mems[1][((ax1 * 400) + k)]));
-        }
-        ref_output[ax1] = std::max((sum + octokernels[5]->host_mems[3][ax1]), 0.0e+00f);
-    }
-    bool pass = true;
-    for(unsigned i = 0; i < num_devices && pass; ++i) {
-        for(unsigned j = 0; j < 120 && pass; ++j) {
-            if(fabsf(octokernels[5]->host_mems[2][j] - ref_output[j]) > 1.0e-5f) {
-                printf("Failed verification @ device %d, index %d\nOutput: %f\nReference: %f\n",
-                        i, j, octokernels[5]->host_mems[2][j], ref_output[j]);
-                pass = false;
-            }
-        }
-    }*/
-
-    // Verifying first laye
-    /*
-    float compute[676];
-
-  for (int ax1 = 0; ax1 < 6; ++ax1) {
-    for (int yy = 0; yy < 26; ++yy) {
-      for (int xx = 0; xx < 26; ++xx) {
-        compute[((yy * 26) + xx)] = 0.000000e+00f;
-        for (int ry = 0; ry < 3; ++ry) {
-          for (int rx = 0; rx < 3; ++rx) {
-            compute[((yy * 26) + xx)] = (compute[((yy * 26) + xx)] + (mnist_x_test[0][((((yy + ry) * 28) + xx) + rx)] * octokernels[0]->host_mems[2][((((ax1 * 3) + ry) * 3) + rx)]));
-          }
-        }
-      }
-    }
-    for (int ax2 = 0; ax2 < 26; ++ax2) {
-      for (int ax3 = 0; ax3 < 26; ++ax3) {
-        ref_output[((((ax1 * 26) + ax2) * 26) + ax3)] = std::max((compute[((ax2 * 26) + ax3)] + octokernels[0]->host_mems[4][ax1]), 0.000000e+00f);
-      }
-    }
-  }
-    bool pass = true;
-    for(unsigned i = 0; i < num_devices && pass; ++i) {
-        for(unsigned j = 0; j < 4056 && pass; ++j) {
-            if(fabsf(octokernels[0]->host_mems[3][j] - ref_output[j]) > 1.0e-5f) {
-                printf("Failed verification @ device %d, index %d\nOutput: %f\nReference: %f\n",
-                        i, j, octokernels[0]->host_mems[3][j], ref_output[j]);
-                pass = false;
-            }
-        }
-    }
-    */
 }
 
 
