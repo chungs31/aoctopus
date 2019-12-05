@@ -9,25 +9,7 @@
 #ifndef LENET5_H
 #define LENET5_H
 
-#include <vector>
-#include <stdlib.h>
-#include "CL/opencl.h"
-
-// Alias of CL mem types for convenience
-enum BUF_TYPE {
-    rw = CL_MEM_READ_WRITE,
-    r = CL_MEM_READ_ONLY,
-    w = CL_MEM_WRITE_ONLY
-};
-
-struct Layer {
-    const char *func_name;
-    int n_bufs;
-    std::vector<size_t> buf_sizes; // Num of elements, i.e., NOT in bytes
-    std::vector<cl_mem_flags> buf_type;  
-    int output_layer_idx;
-    int input_layer_idx;
-};
+#include "layer.h"
 
 namespace LeNet5 {
 
@@ -55,18 +37,6 @@ Layer channels_network[] { // Channels
     {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
 };
 
-Layer c_autorun_network[] {
-    {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
-    //{"fuse_avg_pool2d_kernel0", 0, {}, {}, -1, -1}, 
-    {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
-    //{"fuse_avg_pool2d_1_kernel0", 0, {}, {}, -1, -1}, 
-    //{"fuse_transpose_flatten_kernel0", 0, {}, {}, -1, -1},
-    {"fuse_dense_relu_kernel0", 2, {48000, 120}, {r, r}, -1, -1},
-    {"fuse_dense_relu_1_kernel0", 2, {10080, 84}, {r, r}, -1, -1},
-    {"fuse_dense_kernel0", 2, {840, 10}, {r, r}, -1, -1},
-    {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
-};
-
 Layer network[] { // Channels + Autorun Network
     {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
     {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
@@ -78,5 +48,5 @@ Layer network[] { // Channels + Autorun Network
 
 }
 
-#endif
+#endif /* LENET5_H */
 
