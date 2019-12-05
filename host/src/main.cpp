@@ -48,9 +48,11 @@ scoped_array<cl_device_id> device; // num_devices elements
 cl_context context = NULL;
 cl_program program = NULL;
 
-double wall_clock_time;
-
+const cl_uint max_kernels_supported = 128;
+cl_kernel kernels[max_kernels_supported];
 int num_kernels; 
+
+double wall_clock_time;
 
 std::vector<Octokernel*> octokernels;
 std::vector<std::vector<float> > weights; // imported weights from Keras
@@ -182,8 +184,6 @@ bool init_opencl() {
     checkError(status, "Failed to build program");
 
     // Build the kernels now from the program
-    cl_uint max_kernels_supported = 1024;
-    cl_kernel kernels[max_kernels_supported];
     status = clCreateKernelsInProgram(program, max_kernels_supported, kernels, (cl_uint *) &num_kernels);
 
     printf("Num kernels returned: %d\n", num_kernels);
@@ -420,6 +420,10 @@ void run() {
 void cleanup() {
     for (auto obj : octokernels) {
         delete obj;
+    }
+
+    for (int i = 0; i < num_kernels; i++) {
+        clReleaseKernel(kernels[i]);
     }
 
     if(program) {
