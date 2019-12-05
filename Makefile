@@ -89,7 +89,7 @@ INCS := $(wildcard )
 SRCS := $(wildcard host/src/*.cpp host/src/*.h common/src/AOCLUtils/*.cpp)
 LIBS := rt pthread
 
-PBT_SRCS := $(wildcard host/src/utility/*.cpp host/src/utility/*.hpp common/src/AOCLUtils/*.cpp)
+PBT_SRCS := $(wildcard host/src/utility/*.cpp host/src/utility/*.h common/src/AOCLUtils/*.cpp)
 
 # Make it all!
 all : $(TARGET_DIR)/$(TARGET) $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET)
@@ -114,6 +114,6 @@ $(TARGET_DIR) :
 	
 # Standard make targets
 clean :
-	$(ECHO)rm -f $(TARGET_DIR)/$(TARGET)
+	$(ECHO)rm -f $(TARGET_DIR)/$(TARGET) $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET)
 
 .PHONY : all clean

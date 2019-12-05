@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
 
 
     // Import weights from Keras
-    weight_parser("../data/mnist_weight_dump.txt", weights);
+    weight_parser(config::file_weight, weights);
     printf("Weights imported: size %ld\n", weights.size());
 
     // Optional argument to specify the problem size.
@@ -197,7 +197,7 @@ bool init_opencl() {
         status = clGetKernelInfo(kernels[kern_id], CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &num_args, NULL);
         checkError(status, "Failed to get kernel num args");
 
-        printf("kernel name %s has %d arguments", func_name, num_args);
+        printf("kernel name %s has %d arguments\n", func_name, num_args);
     }
 
     for(unsigned i = 0; i < num_devices; ++i) {
@@ -234,94 +234,20 @@ void init_problem() {
     }
 
     import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", mnist_x_test, mnist_y_test);
-    //ref_output.reset(4056);
-
-    // Load weights to host memory
-    /*
-    printf("Copying weights to host memory for layer 0\n");
-    octokernels[0]->load_buf(1, weights[0]);
-    octokernels[0]->load_buf(2, weights[1]);
-    
-    printf("Copying weights to host memory for layer 2\n");
-    octokernels[2]->load_buf(1, weights[2]);
-    octokernels[2]->load_buf(2, weights[3]);
-    
-    printf("Copying weights to host memory for layer 5\n");
-    octokernels[5]->load_buf(1, weights[4]);
-    octokernels[5]->load_buf(2, weights[5]);
-
-    printf("Copying weights to host memory for layer 6\n");
-    octokernels[6]->load_buf(1, weights[6]);
-    octokernels[6]->load_buf(2, weights[7]);
-    
-    printf("Copying weights to host memory for layer 7\n");
-    octokernels[7]->load_buf(1, weights[8]);
-    octokernels[7]->load_buf(2, weights[9]);
-    */
-    /*
-    printf("Copying weights to host memory for layer 0\n");
-    octokernels[0]->load_buf(2, weights[0]);
-    octokernels[0]->load_buf(4, weights[1]);
-    
-    printf("Copying weights to host memory for layer 2\n");
-    octokernels[2]->load_buf(2, weights[2]);
-    octokernels[2]->load_buf(4, weights[3]);
-    
-    printf("Copying weights to host memory for layer 5\n");
-    octokernels[5]->load_buf(2, weights[4]);
-    octokernels[5]->load_buf(4, weights[5]);
-
-    printf("Copying weights to host memory for layer 6\n");
-    octokernels[6]->load_buf(2, weights[6]);
-    octokernels[6]->load_buf(4, weights[7]);
-    
-    printf("Copying weights to host memory for layer 7\n");
-    octokernels[7]->load_buf(2, weights[8]);
-    octokernels[7]->load_buf(4, weights[9]);
-    */ 
-    /* Channels
-    printf("Copying weights to host memory for layer 0\n");
-    octokernels[0]->load_buf(1, weights[0]);
-    octokernels[0]->load_buf(2, weights[1]);
-    
-    printf("Copying weights to host memory for layer 2\n");
-    octokernels[2]->load_buf(0, weights[2]);
-    octokernels[2]->load_buf(1, weights[3]);
-    
-    printf("Copying weights to host memory for layer 5\n");
-    octokernels[5]->load_buf(0, weights[4]);
-    octokernels[5]->load_buf(1, weights[5]);
-
-    printf("Copying weights to host memory for layer 6\n");
-    octokernels[6]->load_buf(0, weights[6]);
-    octokernels[6]->load_buf(1, weights[7]);
-    
-    printf("Copying weights to host memory for layer 7\n");
-    octokernels[7]->load_buf(0, weights[8]);
-    octokernels[7]->load_buf(1, weights[9]);
-    */
-
-    ///* Channels with autorun
-    printf("Copying weights to host memory for layer 0\n");
-    octokernels[0]->load_buf(1, weights[0]);
-    octokernels[0]->load_buf(2, weights[1]);
-    
-    printf("Copying weights to host memory for layer 2\n");
-    octokernels[1]->load_buf(0, weights[2]);
-    octokernels[1]->load_buf(1, weights[3]);
-    
-    printf("Copying weights to host memory for layer 5\n");
-    octokernels[2]->load_buf(0, weights[4]);
-    octokernels[2]->load_buf(1, weights[5]);
-
-    printf("Copying weights to host memory for layer 6\n");
-    octokernels[3]->load_buf(0, weights[6]);
-    octokernels[3]->load_buf(1, weights[7]);
-    
-    printf("Copying weights to host memory for layer 7\n");
-    octokernels[4]->load_buf(0, weights[8]);
-    octokernels[4]->load_buf(1, weights[9]);
-    //*/
+   
+    // Map weights to layers. Copy to read-only buffers that are not the input buffers.
+    int weight_idx = 0;
+    for (int i = 0; i < num_kernels; i++) {
+        Octokernel *kern = octokernels[i];
+        int num_args = kern->get_n_bufs();
+        for (int j = 0; j < num_args; j++) {
+            if (kern->buf_mflags[j] == CL_MEM_READ_ONLY && j != kern->get_input_idx()) {
+                printf("LAYER %d: weight idx %d copied to HOSTMEM %d\n", i, weight_idx, j);
+                kern->load_buf(j, weights[weight_idx++]);
+            }
+        }
+    }
+    assert(weight_idx == weights.size());
 }
 
 void run() {

@@ -53,7 +53,6 @@ private:
     scoped_array<size_t> buf_lens;
     int n_bufs;
 
-    std::vector<cl_mem_flags> buf_mflags;
     int output_idx;
     int input_idx;
 
@@ -75,6 +74,7 @@ public:
     volatile static int num_ready;
     // Host memory
     scoped_array<scoped_aligned_ptr<float> > host_mems;
+    std::vector<cl_mem_flags> buf_mflags;
     //scoped_array<float> output;
     
     // Public functions
@@ -133,8 +133,9 @@ public:
         return host_mems[output_idx];
     };
 
-    int get_output_idx() { return output_idx; };
-    int get_input_idx() { return input_idx; };
+    int get_output_idx() const { return output_idx; };
+    int get_input_idx() const { return input_idx; };
+    int get_n_bufs() const { return n_bufs; };
 
     void copy_output_from_to(scoped_aligned_ptr<float> &out) {
         //out.reset(buf_lens[output_idx]);
