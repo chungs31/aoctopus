@@ -50,6 +50,8 @@ cl_program program = NULL;
 
 double wall_clock_time;
 
+int num_kernels; 
+
 std::vector<Octokernel*> octokernels;
 std::vector<std::vector<float> > weights; // imported weights from Keras
 
@@ -123,11 +125,6 @@ int main(int argc, char **argv) {
     // Requires the number of devices to be known.
     init_problem();
     
-
-    /* pcie bandwidth test */
-    //pcie_bandwidth_test();
-    //return 0;
-    //
     // Run the kernel.
     run();
 
@@ -184,15 +181,28 @@ bool init_opencl() {
     status = clBuildProgram(program, 0, NULL, "", NULL, NULL);
     checkError(status, "Failed to build program");
 
-    // Get some info
-    cl_uint alignment; 
-    status = clGetDeviceInfo(device[0], CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(cl_uint), &alignment, NULL);
-    checkError(status, "Failed to get alignment info");
-    printf("Device mem base addr alignment: %d\n", (int) alignment);
+    // Build the kernels now from the program
+    cl_uint max_kernels_supported = 1024;
+    cl_kernel kernels[max_kernels_supported];
+    status = clCreateKernelsInProgram(program, max_kernels_supported, kernels, (cl_uint *) &num_kernels);
+
+    printf("Num kernels returned: %d\n", num_kernels);
+
+    for (int kern_id = 0; kern_id < num_kernels; kern_id++) {
+        char func_name[128]; 
+        cl_uint num_args;
+
+        status = clGetKernelInfo(kernels[kern_id], CL_KERNEL_FUNCTION_NAME, 128, (void *) func_name, NULL);
+        checkError(status, "Failed to get kernel func name");
+        status = clGetKernelInfo(kernels[kern_id], CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &num_args, NULL);
+        checkError(status, "Failed to get kernel num args");
+
+        printf("kernel name %s has %d arguments", func_name, num_args);
+    }
 
     for(unsigned i = 0; i < num_devices; ++i) {
         // Kernel
-        for (int kernel = 0; kernel < LeNet5::num_layers; kernel++) {
+        for (int kernel = 0; kernel < num_kernels; kernel++) {
             printf("Registering new kernel index %d named %s with %d bufs\n", kernel, LeNet5::network[kernel].func_name, LeNet5::network[kernel].n_bufs);
             octokernels.push_back(new Octokernel(
                 context, 
@@ -211,7 +221,7 @@ bool init_opencl() {
         }
 
         octokernels[0]->set_as_input_layer();
-        octokernels[LeNet5::num_layers - 1]->set_as_output_layer();
+        octokernels[num_kernels - 1]->set_as_output_layer();
     }
 
     return true;
@@ -248,7 +258,7 @@ void init_problem() {
     octokernels[7]->load_buf(1, weights[8]);
     octokernels[7]->load_buf(2, weights[9]);
     */
-    ///*
+    /*
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(2, weights[0]);
     octokernels[0]->load_buf(4, weights[1]);
@@ -268,7 +278,7 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[7]->load_buf(2, weights[8]);
     octokernels[7]->load_buf(4, weights[9]);
-    // */ 
+    */ 
     /* Channels
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(1, weights[0]);
@@ -291,7 +301,7 @@ void init_problem() {
     octokernels[7]->load_buf(1, weights[9]);
     */
 
-    /* Channels with autorun
+    ///* Channels with autorun
     printf("Copying weights to host memory for layer 0\n");
     octokernels[0]->load_buf(1, weights[0]);
     octokernels[0]->load_buf(2, weights[1]);
@@ -311,17 +321,17 @@ void init_problem() {
     printf("Copying weights to host memory for layer 7\n");
     octokernels[4]->load_buf(0, weights[8]);
     octokernels[4]->load_buf(1, weights[9]);
-    */
+    //*/
 }
 
 void run() {
     cl_int status;
 
-    Octokernel *last = octokernels[LeNet5::num_layers- 1];
+    Octokernel *last = octokernels[num_kernels- 1];
     const double start_time = getCurrentTimestamp();
     
     // Copy the weights to global memory
-    for (int k = 0; k < LeNet5::num_layers; k++) {
+    for (int k = 0; k < num_kernels; k++) {
         octokernels[k]->copy_weights_to_bufs();
     }
     Octokernel::wait_for_write_queue();
@@ -343,8 +353,8 @@ void run() {
         octokernels[0]->set_input_mem(mnist_x_test[i]);
 
         // Enqueue all kernels in order.
-        for (int k = 0; k < LeNet5::num_layers; k++) {
-            //if (k == LeNet5::num_layers - 1 && read_thread.joinable()) { // last iter
+        for (int k = 0; k < num_kernels; k++) {
+            //if (k == num_kernels - 1 && read_thread.joinable()) { // last iter
             //    read_thread.join();
             //}
             octokernels[k]->enqueue_kernel();
@@ -424,7 +434,7 @@ void profiler_output() {
 #ifdef OPENCL_PROFILER_ENABLE
     printf("OpenCL event profiler output\n");
     double sum = 0;
-    for (int kernel = 0; kernel < LeNet5::num_layers; kernel++) {
+    for (int kernel = 0; kernel < num_kernels; kernel++) {
         sum += octokernels[kernel]->kernel_time;
         printf("Kernel %d execution time: %f ms\n", kernel, (double) octokernels[kernel]->kernel_time / 1000000.0);
     }

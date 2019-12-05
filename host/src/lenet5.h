@@ -31,11 +31,7 @@ struct Layer {
 
 namespace LeNet5 {
 
-const int num_layers = 9; // Default network
-
-//const int num_layers = 6; // REMEMBER TO CHANGE THIS
-
-Layer network[] { // Default network (Baseline, Unrolled)
+Layer default_network[] { // Default network (Baseline, Unrolled)
     {"fuse_conv2d_relu_kernel0", 5, {676, 784, 54, 4056, 6}, {rw, r, r, w, r}, 3, 1}, 
     {"fuse_avg_pool2d_kernel0", 2, {1014, 4056}, {w, r}, 0, 1}, 
     {"fuse_conv2d_relu_1_kernel0", 5, {121, 1014, 864, 1936, 16}, {w, r, r, w, r}, 3, 1},
@@ -71,7 +67,7 @@ Layer c_autorun_network[] {
     {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
 };
 
-Layer AUTORUN_network[] { // Channels + Autorun Network
+Layer network[] { // Channels + Autorun Network
     {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
     {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
     {"fuse_dense_relu_kernel0", 2, {48000, 120}, {r, r}, -1, -1},
