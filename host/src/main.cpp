@@ -185,7 +185,6 @@ bool init_opencl() {
 
     // Build the kernels now from the program
     status = clCreateKernelsInProgram(program, max_kernels_supported, kernels, (cl_uint *) &num_kernels);
-
     printf("Num kernels returned: %d\n", num_kernels);
 
     for (int kern_id = 0; kern_id < num_kernels; kern_id++) {
@@ -203,17 +202,18 @@ bool init_opencl() {
     for(unsigned i = 0; i < num_devices; ++i) {
         // Kernel
         for (int kernel = 0; kernel < num_kernels; kernel++) {
-            printf("Registering new kernel index %d named %s with %d bufs\n", kernel, LeNet5::network[kernel].func_name, LeNet5::network[kernel].n_bufs);
+            printf("Registering new kernel index %d named %s with %d bufs\n", kernel, config::cfg_network[kernel].func_name, config::cfg_network[kernel].n_bufs);
+
             octokernels.push_back(new Octokernel(
                 context, 
                 device[i],
                 program,
-                LeNet5::network[kernel].func_name, 
-                LeNet5::network[kernel].n_bufs, 
-                LeNet5::network[kernel].buf_sizes, 
-                LeNet5::network[kernel].buf_type, 
-                LeNet5::network[kernel].output_layer_idx,
-                LeNet5::network[kernel].input_layer_idx
+                config::cfg_network[kernel].func_name, 
+                //config::cfg_network[kernel].n_bufs, 
+                config::cfg_network[kernel].buf_sizes, 
+                config::cfg_network[kernel].buf_type, 
+                config::cfg_network[kernel].output_layer_idx,
+                config::cfg_network[kernel].input_layer_idx
             ));
             if (kernel > 0) {
                 octokernels[kernel]->set_buffer_from_prev(octokernels[kernel - 1]);

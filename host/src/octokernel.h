@@ -82,7 +82,7 @@ public:
                cl_device_id &device,
                cl_program &program, 
                const char *_kernel_name, 
-               int num_buffers, 
+               //int num_buffers, 
                std::vector<size_t> const &buffer_sizes,
                std::vector<cl_mem_flags> const &buffer_mflags,
                int output_idx,
@@ -171,7 +171,7 @@ int Octokernel::num_kernels = 0;
 int Octokernel::num_copied = 0;
 volatile int Octokernel::num_ready = 0;
 
-Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, int num_buffers, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
+Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
     device(device),
     program(program),
     buf_mflags(buffer_mflags),
@@ -188,7 +188,11 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     kernel = clCreateKernel(program, _kernel_name, &status);
     checkError(status, "Failed to create kernel");
     
-    n_bufs = num_buffers;
+    //n_bufs = num_buffers;
+    //cl_uint num_args;
+    status = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &n_bufs, NULL);
+    checkError(status, "Failed to get kernel num args");
+
     host_mems.reset(n_bufs);
     buf_lens.reset(n_bufs);
     bufs.reset(n_bufs);

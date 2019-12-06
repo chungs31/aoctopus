@@ -9,6 +9,9 @@
 #define COMMON_H
 
 #include "CL/opencl.h"
+#include "layer.h"
+#include "imagenet.h"
+#include "lenet5.h"
 
 //#define CONCURRENT_EXECUTION
 
@@ -21,7 +24,9 @@ extern cl_ulong kernel_time, write_time, read_time;
 
 namespace config {
 
-char file_weight[] = "../data/mnist_weight_dump.txt";
+const char file_weight[] = "../data/mnist_weight_dump.txt";
+//const Layer *cfg_network = ImageNet::SqueezeNet;  
+const Layer *cfg_network = LeNet5::autorun_network;
 
 }
 
