@@ -26,6 +26,8 @@
 
 cl_ulong write_time = 0, read_time = 0;
 
+int buffer_mapper(int n_args, int for_input_idx);
+
 using namespace aocl_utils;
 
 class Octokernel {
@@ -44,7 +46,6 @@ private:
     // stuff to keep const
     cl_device_id device;
     cl_program program;
-
 
     static cl_command_queue write_queue;
 
@@ -135,6 +136,7 @@ public:
 
     int get_output_idx() const { return output_idx; };
     int get_input_idx() const { return input_idx; };
+    size_t get_buf_size(int idx) const { return buf_lens[idx]; }; 
     int get_n_bufs() const { return n_bufs; };
 
     void copy_output_from_to(scoped_aligned_ptr<float> &out) {
@@ -171,13 +173,13 @@ int Octokernel::num_kernels = 0;
 int Octokernel::num_copied = 0;
 volatile int Octokernel::num_ready = 0;
 
-Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int output_idx, int input_idx) : 
+Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int _output_idx, int _input_idx) : 
     device(device),
     program(program),
     buf_mflags(buffer_mflags),
 
-    output_idx(output_idx),
-    input_idx(input_idx)
+    output_idx(_output_idx),
+    input_idx(_input_idx)
 {
     // Store name of kernel
     kernel_name = _kernel_name;  
@@ -188,7 +190,6 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     kernel = clCreateKernel(program, _kernel_name, &status);
     checkError(status, "Failed to create kernel");
     
-    //n_bufs = num_buffers;
     //cl_uint num_args;
     status = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &n_bufs, NULL);
     checkError(status, "Failed to get kernel num args");
@@ -196,15 +197,36 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     host_mems.reset(n_bufs);
     buf_lens.reset(n_bufs);
     bufs.reset(n_bufs);
+
+
+    if (input_idx < 0) {
+        input_idx = buffer_mapper(n_bufs, 1);   
+    }
+    if (output_idx < 0) {
+        output_idx = buffer_mapper(n_bufs, 0);
+    }
+
+    std::cout << "[DEBUG] kernel " << id << " w name " << kernel_name << ", in: " << input_idx << ", out: " << output_idx << "\n";
     
     for (int i = 0; i < n_bufs; i++) {
         // Initialize CL buffers
-        buf_lens[i] = buffer_sizes[i];
-        bufs[i] = clCreateBuffer(context, buffer_mflags[i], buf_lens[i] * sizeof(float) , NULL, &status);
+        if (!buffer_sizes.empty())
+            buf_lens[i] = buffer_sizes[i];
+        
+        if (buffer_mflags.empty()) {
+            bufs[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, buf_lens[i] * sizeof(float) , NULL, &status);
+        }
+        else {
+            bufs[i] = clCreateBuffer(context, buffer_mflags[i], buf_lens[i] * sizeof(float) , NULL, &status);
+        }
+
+        std::cout << "acquiring: " << buf_lens[i] * sizeof(float) << std::endl;
         checkError(status, "Failed to create buffer for bias");
 
         // Initialize CPU variables
-        host_mems[i].reset(buf_lens[i]);
+        //if (i == 2 || i == 4 || i == 5) {
+          host_mems[i].reset(buf_lens[i]);
+        //}
     }
 
     // This queue is for weight/bias buffer copying only.
@@ -238,7 +260,7 @@ Octokernel::~Octokernel() {
 
     for (int i = 0; i < n_bufs; i++) {
         host_mems[i].reset();
-        clReleaseMemObject(bufs[i]);
+        //clReleaseMemObject(bufs[i]);
     }
     host_mems.reset();
     buf_lens.reset();
@@ -260,12 +282,13 @@ void Octokernel::copy_weights_to_bufs() {
     cl_int status;
 
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
-        if (buf_mflags[i] == CL_MEM_READ_ONLY) {
-            //cl_event ev;
+        //if (buf_mflags[i] == CL_MEM_READ_ONLY) {
+        if ((n_bufs == 5 && (i == 2 || i == 4)) || (n_bufs == 6 && (i == 2 || i == 4 || i == 5))) {
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
             status = clEnqueueWriteBuffer(write_queue, bufs[i], CL_FALSE, 0, buf_lens[i] * sizeof(float), host_mems[i], 0, NULL, NULL);
             checkError(status, "Failed to transfer to cl buf");
-        }
+        //}
+    }
     }
 
     // This is non-blocking! Call wait after this
@@ -281,6 +304,33 @@ void Octokernel::set_buffer_from_prev(const Octokernel *prev) {
     if (input_idx >= 0 && prev->output_idx >= 0) {
         bufs[input_idx] = prev->bufs[prev->output_idx];
     }
+}
+
+int buffer_mapper(int n_args, int for_input_idx) {
+    int ret = 0;
+
+    if (for_input_idx == 1) { // request is for input_idx
+        switch (n_args) {
+            default:
+                ret = 1;
+                break;
+        }
+    }
+    else { // request is for output_idx
+        switch (n_args) {
+            case 2:
+            case 3:
+                ret = 0;
+                break;
+            case 4:
+            case 5:
+            case 6:
+                ret = 3;
+                break;
+        }
+    }
+
+    return ret;
 }
 
 void Octokernel::enqueue_kernel() {
@@ -393,6 +443,8 @@ void Octokernel::dbg_dump_output() {
     path += kernel_name;
     path += ".txt";
     std::ofstream dumpfile(path.c_str());
+
+    std::cout << "[DEBUG] Dumping output for kernel " << kernel_name << " with output_idx " << output_idx << std::endl;
     
     cl_int status;
     status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,

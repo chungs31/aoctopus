@@ -56,6 +56,7 @@ double wall_clock_time;
 
 std::vector<Octokernel*> octokernels;
 std::vector<std::vector<float> > weights; // imported weights from Keras
+std::vector<std::vector<size_t> > bufsizes; // buffer sizes
 
 // 0 fuse_conv2d_relu_kernel0
 // 1 fuse_avg_pool2d_kernel0 
@@ -81,9 +82,9 @@ std::vector<std::vector<float> > weights; // imported weights from Keras
 // Control whether the fast emulator should be used.
 bool use_fast_emulator = false;
     
-scoped_array<scoped_aligned_ptr<float> > mnist_x_test;
-scoped_array<int> mnist_y_test;
-scoped_array<int> d_y_test;
+scoped_array<scoped_aligned_ptr<float> > x_test;
+scoped_array<int> y_test;
+//scoped_array<int> d_y_test;
 
 int TEST_SET_SIZE = 10000;
 
@@ -103,6 +104,9 @@ int main(int argc, char **argv) {
     // Import weights from Keras
     weight_parser(config::file_weight, weights);
     printf("Weights imported: size %ld\n", weights.size());
+    
+    bufsizes_parser(config::file_bufsizes, bufsizes); // This is not weights but testing
+    printf("Buf sizes imported: size %ld\n", bufsizes.size());
 
     // Optional argument to specify the problem size.
     /*if(options.has("n")) {
@@ -209,8 +213,9 @@ bool init_opencl() {
                 device[i],
                 program,
                 config::cfg_network[kernel].func_name, 
-                //config::cfg_network[kernel].n_bufs, 
-                config::cfg_network[kernel].buf_sizes, 
+                // config::cfg_network[kernel].n_bufs, 
+                //config::cfg_network[kernel].buf_sizes, 
+                bufsizes[kernel],
                 config::cfg_network[kernel].buf_type, 
                 config::cfg_network[kernel].output_layer_idx,
                 config::cfg_network[kernel].input_layer_idx
@@ -233,20 +238,43 @@ void init_problem() {
         checkError(-1, "No devices");
     }
 
-    import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", mnist_x_test, mnist_y_test);
-   
+    //import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test);
+    //import_imagenet("../data/cat224224.db", NULL, x_test, y_test);
+    generate_random(TEST_SET_SIZE, 224*224*3, x_test);
+    y_test.reset();
+
     // Map weights to layers. Copy to read-only buffers that are not the input buffers.
+    // Works for LeNet5...
     int weight_idx = 0;
     for (int i = 0; i < num_kernels; i++) {
         Octokernel *kern = octokernels[i];
         int num_args = kern->get_n_bufs();
-        for (int j = 0; j < num_args; j++) {
-            if (kern->buf_mflags[j] == CL_MEM_READ_ONLY && j != kern->get_input_idx()) {
-                printf("LAYER %d: weight idx %d copied to HOSTMEM %d\n", i, weight_idx, j);
-                kern->load_buf(j, weights[weight_idx++]);
+        /*
+        if (num_args != -1) { // Manual-ish configuration.
+            for (int j = 0; j < num_args; j++) {
+                if (kern->buf_mflags[j] == CL_MEM_READ_ONLY && j != kern->get_input_idx()) {
+                    printf("LAYER %d: weight idx %d copied to HOSTMEM %d\n", i, weight_idx, j);
+                    kern->load_buf(j, weights[weight_idx++]);
+                }
             }
         }
+        else { */
+            if (num_args < 5) { 
+                // Only kernels with 5 arguments have weights/biases.
+                // Don't load them.
+                continue;
+            }
+            else {
+                kern->load_buf(2, weights[weight_idx++]);
+                kern->load_buf(4, weights[weight_idx++]);
+                if (num_args > 5) {
+                  kern->load_buf(5, weights[weight_idx++]);
+                }
+            }
+        //}
     }
+
+    // All weights should have been mapped. 
     assert(weight_idx == weights.size());
 }
 
@@ -264,19 +292,22 @@ void run() {
 
     scoped_array<scoped_aligned_ptr<float> > d_y;
     d_y.reset(TEST_SET_SIZE);
+    size_t output_size = last->get_buf_size(last->get_output_idx());
     for (int i = 0; i < TEST_SET_SIZE; i++) {
-        d_y[i].reset(10);
+        // Allocate space for last output to be copied here.
+        d_y[i].reset(output_size); 
     }
 
+    const double exec_time = getCurrentTimestamp();
     //std::thread read_thread = std::thread(&Octokernel::copy_output_from_to_fcn, last, std::ref(d_y)); 
     for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
-        if (i % 100 == 0) {
+        //if (i % 100 == 0) {
             printf("%5d/%d\r", i, TEST_SET_SIZE);
             fflush(stdout);
-        }
+        //}
 
         // Write input to host memory. Will be copied to buffer in enqueue.
-        octokernels[0]->set_input_mem(mnist_x_test[i]);
+        octokernels[0]->set_input_mem(x_test[i]);
 
         // Enqueue all kernels in order.
         for (int k = 0; k < num_kernels; k++) {
@@ -300,7 +331,7 @@ void run() {
     const double end_time = getCurrentTimestamp();
 
     // Wall-clock time taken.
-    wall_clock_time = (end_time - start_time) * 1e3;
+    wall_clock_time = (end_time - exec_time) * 1e3;
 
     scoped_array<int> predictions(TEST_SET_SIZE);
 
@@ -312,7 +343,7 @@ void run() {
         //printf("[");
         float max_val = -100000.0;
         int max_idx = -1000;
-        for (int output_idx = 0; output_idx < 10; output_idx++) {
+        for (int output_idx = 0; output_idx < output_size; output_idx++) {
             /*
             if (output_idx != 9) {
                 printf("%f, ", d_y[i][output_idx]);
@@ -330,14 +361,18 @@ void run() {
         predictions[i] = max_idx;
         
         //printf("]\n");
-        //printf("Predicted number: %d\n", max_idx);
-        
-        if (predictions[i] != mnist_y_test[i]) {
+        printf("Predicted class: %d\n", max_idx);
+       
+        // Verification step: skip for now
+        /*
+        if (predictions[i] != y_test[i]) {
             incorrect++;
         }
+        */
     }
 
-    printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
+    
+    //printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
 }
 
 

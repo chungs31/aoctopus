@@ -16,7 +16,11 @@
 using namespace aocl_utils;
 
 void weight_parser(const char *filename, std::vector<std::vector<float> > &weights);
+void bufsizes_parser(const char *filename, std::vector<std::vector<size_t> > &weights);
 void import_mnist(const char *x_test, const char *y_test, aocl_utils::scoped_array<scoped_aligned_ptr<float> > &mnist_x_test, aocl_utils::scoped_array<int> &mnist_y_test);
+void import_imagenet(const char *x_test, const char *y_test, aocl_utils::scoped_array<scoped_aligned_ptr<float> > &out_x_test, aocl_utils::scoped_array<int> &out_y_test);
+void generate_random(int num_inputs, int input_size, aocl_utils::scoped_array<scoped_aligned_ptr<float> > &x_test);
+
 
 #endif
 
