@@ -239,8 +239,8 @@ void init_problem() {
     }
 
     //import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test);
-    //import_imagenet("../data/cat224224.db", NULL, x_test, y_test);
-    generate_random(TEST_SET_SIZE, 224*224*3, x_test);
+    import_imagenet("../data/cat224224.db", NULL, x_test, y_test);
+    //generate_random(TEST_SET_SIZE, 224*224*3, x_test);
     y_test.reset();
 
     // Map weights to layers. Copy to read-only buffers that are not the input buffers.
@@ -259,6 +259,9 @@ void init_problem() {
             }
         }
         else { */
+        
+        // THIS IS THE DEFAULT MOBILENET CONFIGUROR
+        /*
             if (num_args < 5) { 
                 // Only kernels with 5 arguments have weights/biases.
                 // Don't load them.
@@ -271,6 +274,16 @@ void init_problem() {
                   kern->load_buf(5, weights[weight_idx++]);
                 }
             }
+        */
+        // MOBILENET CHANNELS CONFIGUROR
+
+        if (!kern->is_input_or_output_layer()) {
+            for (int j = 0; j < num_args; j++) {
+                kern->load_buf(j, weights[weight_idx++]);
+            }
+        }
+        
+
         //}
     }
 
@@ -286,7 +299,8 @@ void run() {
     
     // Copy the weights to global memory
     for (int k = 0; k < num_kernels; k++) {
-        octokernels[k]->copy_weights_to_bufs();
+        if (!octokernels[k]->is_input_or_output_layer()) 
+            octokernels[k]->copy_weights_to_bufs();
     }
     Octokernel::wait_for_write_queue();
 

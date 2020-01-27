@@ -159,6 +159,8 @@ public:
     void set_as_input_layer() { is_input_layer = true; };
     void set_as_output_layer() { is_output_layer = true; };
 
+    bool is_input_or_output_layer() const{ return ( is_input_layer || is_output_layer ); };
+
     // debug functions
     void dbg_dump_output();
 };
@@ -199,12 +201,14 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     bufs.reset(n_bufs);
 
 
+    /*
     if (input_idx < 0) {
         input_idx = buffer_mapper(n_bufs, 1);   
     }
     if (output_idx < 0) {
         output_idx = buffer_mapper(n_bufs, 0);
     }
+    */
 
     std::cout << "[DEBUG] kernel " << id << " w name " << kernel_name << ", in: " << input_idx << ", out: " << output_idx << "\n";
     
@@ -283,16 +287,15 @@ void Octokernel::copy_weights_to_bufs() {
 
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
         //if (buf_mflags[i] == CL_MEM_READ_ONLY) {
-        if ((n_bufs == 5 && (i == 2 || i == 4)) || (n_bufs == 6 && (i == 2 || i == 4 || i == 5))) {
+        //if ((n_bufs == 5 && (i == 2 || i == 4)) || (n_bufs == 6 && (i == 2 || i == 4 || i == 5))) {
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
             status = clEnqueueWriteBuffer(write_queue, bufs[i], CL_FALSE, 0, buf_lens[i] * sizeof(float), host_mems[i], 0, NULL, NULL);
             checkError(status, "Failed to transfer to cl buf");
         //}
     }
-    }
 
     // This is non-blocking! Call wait after this
-    enqueue_kernel(); //copy to local/registers
+    //enqueue_kernel(); //copy to local/registers
     weights_copied = true;
 }
 
