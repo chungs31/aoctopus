@@ -46,6 +46,99 @@ Layer autorun_network[] { // Channels + Autorun Network
     {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
 };
 
+/*
+Layer reuse_network[] { // reuse
+    {.func_name = "fuse_conv2d_relu_kernel0", 
+     .input_sizes = {784},
+     .param_sizes = {54, 6}},
+    {.func_name = "fuse_conv2d_relu_1_kernel0", 
+     .input_sizes = {},
+     .output_sizes = {},
+     .param_sizes = {864, 16}},
+    {.func_name = "read_to_ch4", 
+     .input_sizes = {},
+     .output_sizes = {120},
+     .dependencies = {2}},
+    {.func_name = "fuse_dense_reuse", 
+     .input_sizes = {120},
+     .output_sizes = {},
+     .param_sizes = {{48000, 120}, {10080, 84}, {840, 10}},
+     .dependencies = {3}},
+    {.func_name = "write_to_ch7",
+     .input_sizes = {10},
+     .dependencies = {4}},
+    {.func_name = "fuse_softmax_kernel0",
+     .output_sizes = {10},
+     .dependencies = {5}},
+};
+*/
+Layer reuse_network[] { // Channels + Autorun Network
+    {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
+    {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
+    {"read_to_ch4", 1, {400}, {rw}, 0, -1},
+    {"fuse_dense_reuse", 10, {400, 48000, 120, 10080, 84, 840, 10, 120, 84, 10}, 
+        {r, r, r, r, r, r, r, rw, rw, rw}, 9, 0},
+    {"write_to_ch7", 1, {10}, {rw}, -1, 0},
+    {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
+};
+
+Layer reuse_fused_network[] { // Channels + Autorun Network
+    {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
+    {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
+    {"fuse_dense_reuse", 10, {400, 48000, 120, 10080, 84, 840, 10, 120, 84, 10}, 
+        {rw, r, r, r, r, r, r, rw, rw, rw}, 9, 0},
+    {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
+};
+
+Layer combined_dense_network[] { // Channels + Autorun Network
+    {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
+    {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
+    {"read_to_ch4", 1, {400}, {rw}, 0, -1},
+    {"fuse_dense_combined", 10, {400, 48000, 120, 10080, 84, 840, 10, 120, 84, 10}, 
+        {r, r, r, r, r, r, r, rw, rw, rw}, 9, 0},
+    {"write_to_ch7", 1, {10}, {rw}, -1, 0},
+    {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
+};
+
+Layer globalmem_network[] { 
+    {"fuse_conv2d_relu_kernel0", 4, {784, 54, 6, 4056}, {r, r, r, w}, 3, 0}, 
+    {"fuse_avg_pool2d_kernel0", 2, {4056, 1014}, {r, w}, 1, 0}, 
+    {"fuse_conv2d_relu_1_kernel0", 4, {1014, 864, 16, 1936}, {r, r, r, w}, 3, 0},
+    {"fuse_avg_pool2d_1_kernel0", 2, {1924, 400}, {r, w}, 1, 0}, 
+    {"fuse_transpose_flatten_kernel0", 2, {400, 400}, {r, w}, 1, 0},
+    {"fuse_dense_relu_kernel0", 4, {400, 48000, 120, 120}, {r, r, r, w}, 3, 0},
+    {"fuse_dense_relu_1_kernel0", 4, {120, 10080, 84, 84}, {r, r, r, w}, 3, 0},
+    {"fuse_dense_kernel0", 4, {84, 840, 10, 10}, {r, r, r, w}, 3, 0},
+    {"fuse_softmax_kernel0", 2, {10, 10}, {r, w}, 1, 0}
+};
+/*
+Layer combined_dense_network[] { // combined
+    {func_name : "fuse_conv2d_relu_kernel0", 
+     input_sizes : {784},
+     output_sizes : {},
+     param_sizes : {{54, 6}}},
+    {func_name : "fuse_conv2d_relu_1_kernel0", 
+     input_sizes : {},
+     output_sizes : {},
+     param_sizes : {{864, 16}}},
+    {func_name : "read_to_ch4", 
+     input_sizes : {},
+     output_sizes : {120},
+     dependencies : {2}},
+    {func_name : "fuse_dense_combined", 
+     input_sizes : {120},
+     output_sizes : {},
+     param_sizes : {{48000, 120, 10080, 84, 840, 10}},
+     dependencies : {3}},
+    {func_name : "write_to_ch7",
+     input_sizes : {10},
+     dependencies : {4}},
+    {func_name : "fuse_softmax_kernel0",
+     output_sizes : {10},
+     dependencies : {5}}
+};
+*/
+
 }
 
 #endif /* LENET5_H */
