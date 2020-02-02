@@ -46,32 +46,6 @@ Layer autorun_network[] { // Channels + Autorun Network
     {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
 };
 
-/*
-Layer reuse_network[] { // reuse
-    {.func_name = "fuse_conv2d_relu_kernel0", 
-     .input_sizes = {784},
-     .param_sizes = {54, 6}},
-    {.func_name = "fuse_conv2d_relu_1_kernel0", 
-     .input_sizes = {},
-     .output_sizes = {},
-     .param_sizes = {864, 16}},
-    {.func_name = "read_to_ch4", 
-     .input_sizes = {},
-     .output_sizes = {120},
-     .dependencies = {2}},
-    {.func_name = "fuse_dense_reuse", 
-     .input_sizes = {120},
-     .output_sizes = {},
-     .param_sizes = {{48000, 120}, {10080, 84}, {840, 10}},
-     .dependencies = {3}},
-    {.func_name = "write_to_ch7",
-     .input_sizes = {10},
-     .dependencies = {4}},
-    {.func_name = "fuse_softmax_kernel0",
-     .output_sizes = {10},
-     .dependencies = {5}},
-};
-*/
 Layer reuse_network[] { // Channels + Autorun Network
     {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
     {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},
@@ -111,33 +85,6 @@ Layer globalmem_network[] {
     {"fuse_dense_kernel0", 4, {84, 840, 10, 10}, {r, r, r, w}, 3, 0},
     {"fuse_softmax_kernel0", 2, {10, 10}, {r, w}, 1, 0}
 };
-/*
-Layer combined_dense_network[] { // combined
-    {func_name : "fuse_conv2d_relu_kernel0", 
-     input_sizes : {784},
-     output_sizes : {},
-     param_sizes : {{54, 6}}},
-    {func_name : "fuse_conv2d_relu_1_kernel0", 
-     input_sizes : {},
-     output_sizes : {},
-     param_sizes : {{864, 16}}},
-    {func_name : "read_to_ch4", 
-     input_sizes : {},
-     output_sizes : {120},
-     dependencies : {2}},
-    {func_name : "fuse_dense_combined", 
-     input_sizes : {120},
-     output_sizes : {},
-     param_sizes : {{48000, 120, 10080, 84, 840, 10}},
-     dependencies : {3}},
-    {func_name : "write_to_ch7",
-     input_sizes : {10},
-     dependencies : {4}},
-    {func_name : "fuse_softmax_kernel0",
-     output_sizes : {10},
-     dependencies : {5}}
-};
-*/
 
 }
 
