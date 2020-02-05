@@ -188,7 +188,9 @@ bool init_opencl() {
     printf("Num kernels returned: %d\n", num_kernels);
     
     // If Intel Internal Autorun Profiling is on, have to decrease
+#ifdef INTEL_PROFILER_ENABLE
     num_kernels--;
+#endif
 
     for (int kern_id = 0; kern_id < num_kernels; kern_id++) {
         char func_name[128]; 

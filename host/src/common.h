@@ -13,10 +13,10 @@
 #include "imagenet.h"
 #include "lenet5.h"
 
-//#define CONCURRENT_EXECUTION
+#define CONCURRENT_EXECUTION
 
-#define OPENCL_PROFILER_ENABLE
-#define INTEL_PROFILER_ENABLE
+//#define OPENCL_PROFILER_ENABLE
+//#define INTEL_PROFILER_ENABLE
 
 extern int TEST_SET_SIZE;
 
