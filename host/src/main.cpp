@@ -186,6 +186,9 @@ bool init_opencl() {
     // Build the kernels now from the program
     status = clCreateKernelsInProgram(program, max_kernels_supported, kernels, (cl_uint *) &num_kernels);
     printf("Num kernels returned: %d\n", num_kernels);
+    
+    // If Intel Internal Autorun Profiling is on, have to decrease
+    num_kernels--;
 
     for (int kern_id = 0; kern_id < num_kernels; kern_id++) {
         char func_name[128]; 
@@ -259,8 +262,12 @@ void run() {
     // Copy the weights to global memory
     for (int k = 0; k < num_kernels; k++) {
         octokernels[k]->copy_weights_to_bufs();
+        //if (k == 3) octokernels[k]->enqueue_kernel_reuse(1);
+        //if (k == 4) octokernels[k]->enqueue_kernel(1);
+        //octokernels[k]->enqueue_kernel(1); // only enable for globalmem
     }
     Octokernel::wait_for_write_queue();
+    printf("Completed writing weights\n");
 
     scoped_array<scoped_aligned_ptr<float> > d_y;
     d_y.reset(TEST_SET_SIZE);
@@ -282,8 +289,22 @@ void run() {
         for (int k = 0; k < num_kernels; k++) {
             //if (k == num_kernels - 1 && read_thread.joinable()) { // last iter
             //    read_thread.join();
+            //
             //}
-            octokernels[k]->enqueue_kernel();
+            /* uncomment for reuse
+            if (k == 3) { 
+                octokernels[k]->enqueue_kernel_reuse();
+            }
+            else if (k == 4) {
+                octokernels[k]->enqueue_kernel(0);
+            }
+            */
+            if (k == 2) { 
+                octokernels[k]->enqueue_kernel_reuse();
+            }
+            else {
+                octokernels[k]->enqueue_kernel();//(0);
+            }
             //octokernels[k]->dbg_dump_output();
         }
 

@@ -15,8 +15,8 @@
 
 //#define CONCURRENT_EXECUTION
 
-//#define OPENCL_PROFILER_ENABLE
-//#define INTEL_PROFILER_ENABLE
+#define OPENCL_PROFILER_ENABLE
+#define INTEL_PROFILER_ENABLE
 
 extern int TEST_SET_SIZE;
 
@@ -26,7 +26,7 @@ namespace config {
 
 const char file_weight[] = "../data/mnist_weight_dump.txt";
 //const Layer *cfg_network = ImageNet::SqueezeNet;  
-const Layer *cfg_network = LeNet5::autorun_network;
+const Layer *cfg_network = LeNet5::reuse_fused_network;
 
 }
 
