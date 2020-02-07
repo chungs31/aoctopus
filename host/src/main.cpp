@@ -190,6 +190,11 @@ bool init_opencl() {
     // Build the kernels now from the program
     status = clCreateKernelsInProgram(program, max_kernels_supported, kernels, (cl_uint *) &num_kernels);
     printf("Num kernels returned: %d\n", num_kernels);
+    
+    // If Intel Internal Autorun Profiling is on, have to decrease
+#ifdef INTEL_PROFILER_ENABLE
+    num_kernels--;
+#endif
 
     for (int kern_id = 0; kern_id < num_kernels; kern_id++) {
         char func_name[128]; 
@@ -214,8 +219,8 @@ bool init_opencl() {
                 program,
                 config::cfg_network[kernel].func_name, 
                 // config::cfg_network[kernel].n_bufs, 
-                //config::cfg_network[kernel].buf_sizes, 
-                bufsizes[kernel],
+                config::cfg_network[kernel].buf_sizes, 
+                //bufsizes[kernel],
                 config::cfg_network[kernel].buf_type, 
                 config::cfg_network[kernel].output_layer_idx,
                 config::cfg_network[kernel].input_layer_idx
@@ -238,10 +243,10 @@ void init_problem() {
         checkError(-1, "No devices");
     }
 
-    //import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test);
-    import_imagenet("../data/cat224224.db", NULL, x_test, y_test);
+    import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test);
+    //import_imagenet("../data/cat224224.db", NULL, x_test, y_test);
     //generate_random(TEST_SET_SIZE, 224*224*3, x_test);
-    y_test.reset();
+    //y_test.reset();
 
     // Map weights to layers. Copy to read-only buffers that are not the input buffers.
     // Works for LeNet5...
@@ -249,7 +254,6 @@ void init_problem() {
     for (int i = 0; i < num_kernels; i++) {
         Octokernel *kern = octokernels[i];
         int num_args = kern->get_n_bufs();
-        /*
         if (num_args != -1) { // Manual-ish configuration.
             for (int j = 0; j < num_args; j++) {
                 if (kern->buf_mflags[j] == CL_MEM_READ_ONLY && j != kern->get_input_idx()) {
@@ -258,7 +262,10 @@ void init_problem() {
                 }
             }
         }
-        else { */
+
+        // MOBILENET
+
+        //else { */
         
         // THIS IS THE DEFAULT MOBILENET CONFIGUROR
         /*
@@ -277,11 +284,13 @@ void init_problem() {
         */
         // MOBILENET CHANNELS CONFIGUROR
 
+        /*
         if (!kern->is_input_or_output_layer()) {
             for (int j = 0; j < num_args; j++) {
                 kern->load_buf(j, weights[weight_idx++]);
             }
         }
+        */
         
 
         //}
@@ -299,10 +308,18 @@ void run() {
     
     // Copy the weights to global memory
     for (int k = 0; k < num_kernels; k++) {
-        if (!octokernels[k]->is_input_or_output_layer()) 
-            octokernels[k]->copy_weights_to_bufs();
+        // MOBILENET
+        //if (!octokernels[k]->is_input_or_output_layer()) 
+        //    octokernels[k]->copy_weights_to_bufs();
+        octokernels[k]->copy_weights_to_bufs();
+
+        // Reuse stuff
+        //if (k == 3) octokernels[k]->enqueue_kernel_reuse(1);
+        //if (k == 4) octokernels[k]->enqueue_kernel(1);
+        //octokernels[k]->enqueue_kernel(1); // only enable for globalmem
     }
     Octokernel::wait_for_write_queue();
+    printf("Completed writing weights\n");
 
     scoped_array<scoped_aligned_ptr<float> > d_y;
     d_y.reset(TEST_SET_SIZE);
@@ -327,8 +344,22 @@ void run() {
         for (int k = 0; k < num_kernels; k++) {
             //if (k == num_kernels - 1 && read_thread.joinable()) { // last iter
             //    read_thread.join();
+            //
             //}
-            octokernels[k]->enqueue_kernel();
+            /* uncomment for reuse
+            if (k == 3) { 
+                octokernels[k]->enqueue_kernel_reuse();
+            }
+            else if (k == 4) {
+                octokernels[k]->enqueue_kernel(0);
+            }
+            */
+            if (k == 2) { 
+                octokernels[k]->enqueue_kernel_reuse();
+            }
+            else {
+                octokernels[k]->enqueue_kernel();//(0);
+            }
             //octokernels[k]->dbg_dump_output();
         }
 
@@ -375,18 +406,16 @@ void run() {
         predictions[i] = max_idx;
         
         //printf("]\n");
-        printf("Predicted class: %d\n", max_idx);
+        //printf("Predicted class: %d\n", max_idx);
        
         // Verification step: skip for now
-        /*
         if (predictions[i] != y_test[i]) {
             incorrect++;
         }
-        */
     }
 
     
-    //printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
+    printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
 }
 
 

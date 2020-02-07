@@ -21,8 +21,6 @@
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
 #include "common.h"
-#include "CL/cl_ext_intelfpga.h"
-#include "lenet5.h"
 
 cl_ulong write_time = 0, read_time = 0;
 
@@ -64,7 +62,6 @@ private:
     bool inputs_copied = false;
     
     // Events (for in-order execution)
-    //static cl_event kernel_events[LeNet5::num_layers];
     static int num_kernels; 
 
     // For read-back
@@ -110,8 +107,10 @@ public:
     void set_buffer_from_prev(const Octokernel *prev);
 
     // Enqueue
-    //cl_event &enqueue_kernel(cl_event &dependency);
     void enqueue_kernel();
+    void enqueue_kernel(int init);
+    void enqueue_kernel_reuse();
+    void enqueue_kernel_reuse(int init);
 
     // Input from vector or scoped aligned ptr. 
     void set_input_mem(std::vector<float> &in) {
@@ -194,6 +193,10 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     
     //cl_uint num_args;
     status = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &n_bufs, NULL);
+    //n_bufs;// minus 1 if using globalmem for init
+    if (kernel_name == "write_to_ch7") {
+        n_bufs--;
+    }
     checkError(status, "Failed to get kernel num args");
 
     host_mems.reset(n_bufs);
@@ -286,16 +289,16 @@ void Octokernel::copy_weights_to_bufs() {
     cl_int status;
 
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
-        //if (buf_mflags[i] == CL_MEM_READ_ONLY) {
+        if (buf_mflags[i] == CL_MEM_READ_ONLY) {
         //if ((n_bufs == 5 && (i == 2 || i == 4)) || (n_bufs == 6 && (i == 2 || i == 4 || i == 5))) {
+        //if (buf_mflags[i] == CL_MEM_READ_ONLY) {
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
             status = clEnqueueWriteBuffer(write_queue, bufs[i], CL_FALSE, 0, buf_lens[i] * sizeof(float), host_mems[i], 0, NULL, NULL);
             checkError(status, "Failed to transfer to cl buf");
-        //}
+        }
     }
 
     // This is non-blocking! Call wait after this
-    //enqueue_kernel(); //copy to local/registers
     weights_copied = true;
 }
 
@@ -438,6 +441,147 @@ void Octokernel::enqueue_kernel() {
     if (write_event) clReleaseEvent(write_event);
     if (kernel_event) clReleaseEvent(kernel_event);
     if (finish_event) clReleaseEvent(finish_event);
+}
+void Octokernel::enqueue_kernel_reuse() {
+    enqueue_kernel_reuse(0);
+}
+
+void Octokernel::enqueue_kernel_reuse(int init) {
+    cl_int status;
+    cl_event k1, k2, k3;
+
+    // Enqueue kernel.
+    // Use a global work size corresponding to the number of elements to add
+    // for this device.
+    //
+    // We don't specify a local work size and let the runtime choose
+    // (it'll choose to use one work-group with the same size as the global
+    // work-size).
+    //
+    // Events are used to ensure that the kernel is not launched until
+    // the writes to the input buffers have completed.
+    const size_t global_work_size = 1;
+
+    if (init == 1){
+        int argid = 0;
+        clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[0]);
+        clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[1]);
+        clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[2]);
+        clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[7]); // first output
+        int ax1_bound = 1;
+        clSetKernelArg(kernel, argid++, sizeof(int), &ax1_bound);
+        int k_bound = 1; 
+        clSetKernelArg(kernel, argid++, sizeof(int), &k_bound);
+        int relu_true = 0;
+        clSetKernelArg(kernel, argid++, sizeof(int), &relu_true);
+        int wait_channel = 0;
+        clSetKernelArg(kernel, argid++, sizeof(int), &wait_channel);
+        int done = 0;
+        clSetKernelArg(kernel, argid++, sizeof(int), &done);
+        clSetKernelArg(kernel, argid++, sizeof(int), &init);
+
+        status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
+                &global_work_size, NULL, 0, NULL, &k1); // change 3 to number of writes
+        checkError(status, "Failed to launch kernel %s p1", kernel_name.c_str());
+        clReleaseEvent(k1);
+        return;
+    }
+        
+    int argid = 0;
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[0]);
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[1]);
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[2]);
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[7]); // first output
+    int ax1_bound = 120;
+    clSetKernelArg(kernel, argid++, sizeof(int), &ax1_bound);
+    int k_bound = 400; 
+    clSetKernelArg(kernel, argid++, sizeof(int), &k_bound);
+    int relu_true = 1;
+    clSetKernelArg(kernel, argid++, sizeof(int), &relu_true);
+    int wait_channel = 1;
+    clSetKernelArg(kernel, argid++, sizeof(int), &wait_channel);
+    int done = 0;
+    clSetKernelArg(kernel, argid++, sizeof(int), &done);
+    clSetKernelArg(kernel, argid++, sizeof(int), &init);
+
+    status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
+            &global_work_size, NULL, 0, NULL, &k1); // change 3 to number of writes
+    checkError(status, "Failed to launch kernel %s p1", kernel_name.c_str());
+    
+    argid = 0;
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[7]);
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[3]);
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[4]);
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[8]); // second output
+    ax1_bound = 84;
+    clSetKernelArg(kernel, argid++, sizeof(int), &ax1_bound);
+    k_bound = 120; 
+    clSetKernelArg(kernel, argid++, sizeof(int), &k_bound);
+    relu_true = 1;
+    clSetKernelArg(kernel, argid++, sizeof(int), &relu_true);
+    wait_channel = 0;
+    clSetKernelArg(kernel, argid++, sizeof(int), &wait_channel);
+    done = 0;
+    clSetKernelArg(kernel, argid++, sizeof(int), &done);
+    clSetKernelArg(kernel, argid++, sizeof(int), &init);
+    
+    status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
+            &global_work_size, NULL, 1, &k1, &k2); // k1 must finish before this
+    checkError(status, "Failed to launch kernel %s p2", kernel_name.c_str());
+    
+    argid = 0;
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[8]);
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[5]);
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[6]);
+    clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[9]); // third output
+    ax1_bound = 10;
+    clSetKernelArg(kernel, argid++, sizeof(int), &ax1_bound);
+    k_bound = 84; 
+    clSetKernelArg(kernel, argid++, sizeof(int), &k_bound);
+    relu_true = 0;
+    clSetKernelArg(kernel, argid++, sizeof(int), &relu_true);
+    wait_channel = 0;
+    clSetKernelArg(kernel, argid++, sizeof(int), &wait_channel);
+    done = 1;
+    clSetKernelArg(kernel, argid++, sizeof(int), &done);
+    clSetKernelArg(kernel, argid++, sizeof(int), &init);
+    
+    status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
+            &global_work_size, NULL, 1, &k2, &k3); // k1 must finish before this
+    checkError(status, "Failed to launch kernel %s p3", kernel_name.c_str());
+    
+    // Read the result. This the final operation.
+    /*if (output_idx >= 0 && is_output_layer) {
+    status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
+            0, buf_lens[output_idx]* sizeof(float), host_mems[output_idx], 1, &k3, &finish_event);
+    checkError(status, "Failed to launch kernel");
+    num_ready++;
+    }
+    */
+#ifdef OPENCL_PROFILER_ENABLE
+    cl_ulong start, end;
+    clFinish(q);
+
+
+#ifdef INTEL_PROFILER_ENABLE
+    clGetProfileInfoIntelFPGA(k1);
+    clGetProfileInfoIntelFPGA(k2);
+    clGetProfileInfoIntelFPGA(k3);
+#endif
+    clGetEventProfilingInfo(k1, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+    clGetEventProfilingInfo(k1, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+    kernel_time += end - start;
+    clGetEventProfilingInfo(k2, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+    clGetEventProfilingInfo(k2, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+    kernel_time += end - start;
+    clGetEventProfilingInfo(k3, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+    clGetEventProfilingInfo(k3, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+    kernel_time += end - start;
+#endif
+   
+    clReleaseEvent(k1);
+    clReleaseEvent(k2);
+    clReleaseEvent(k3);
     //return kernel_event;
 }
 
@@ -474,6 +618,100 @@ void Octokernel::dbg_dump_output() {
     dumpfile << "]" << std::endl;
 
     dumpfile.close();
+}
+
+void Octokernel::enqueue_kernel(int init) {
+    cl_int status;
+    cl_event kernel_event = NULL, finish_event = NULL, write_event = NULL;
+
+    //printf("Enqueue on %s\n", kernel_name.c_str());
+    //printf("Number of buffers: %d\n",n_bufs);
+    
+    // Transfer inputs to each device. Each of the host buffers supplied to
+    // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
+    // for the host-to-device transfer.
+    if (input_idx >= 0 && is_input_layer && !inputs_copied) {
+        status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
+        checkError(status, "Failed to transfer to cl buf");
+    }
+
+    int tmp = 1;
+    // set arguments
+    for (unsigned i = 0; i < n_bufs; i++) {
+        status = clSetKernelArg(kernel, i, sizeof(cl_mem), &bufs[i]);
+        checkError(status, "Failed to set argument %d", i);
+    }
+    clSetKernelArg(kernel, n_bufs, sizeof(int), &init);
+
+    // Enqueue kernel.
+    // Use a global work size corresponding to the number of elements to add
+    // for this device.
+    //
+    // We don't specify a local work size and let the runtime choose
+    // (it'll choose to use one work-group with the same size as the global
+    // work-size).
+    //
+    // Events are used to ensure that the kernel is not launched until
+    // the writes to the input buffers have completed.
+    const size_t global_work_size = 1;
+
+    if (write_event) {
+    status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
+            &global_work_size, NULL, 1, &write_event, &kernel_event); // change 3 to number of writes
+    checkError(status, "Failed to launch kernel %s", kernel_name.c_str());
+    }
+    else {
+    status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
+            &global_work_size, NULL, 0, NULL, &kernel_event); // change 3 to number of writes
+    checkError(status, "Failed to launch kernel %s", kernel_name.c_str());
+    }
+    
+    // Read the result. This the final operation.
+    if (output_idx >= 0 && is_output_layer) {
+    status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
+            0, buf_lens[output_idx]* sizeof(float), host_mems[output_idx], 1, &kernel_event, &finish_event);
+    checkError(status, "Failed to launch kernel");
+    num_ready++;
+    }
+   
+#ifdef OPENCL_PROFILER_ENABLE
+    cl_ulong start, end;
+    clFinish(q);
+
+    //clGetProfileDataDeviceIntelFPGA(device, program, true, true, (cl_bool) NULL, (size_t) NULL, (void *) NULL, (size_t) NULL, (cl_int *) NULL);
+
+    if (write_event) {
+#ifdef INTEL_PROFILER_ENABLE
+        clGetProfileInfoIntelFPGA(write_event);
+#endif
+        clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        write_time += end - start;
+    }
+
+    if (kernel_event) {
+#ifdef INTEL_PROFILER_ENABLE
+        clGetProfileInfoIntelFPGA(kernel_event);
+#endif
+        clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        kernel_time += end - start;
+    }
+    
+    if (finish_event) {
+#ifdef INTEL_PROFILER_ENABLE
+        clGetProfileInfoIntelFPGA(finish_event);
+#endif
+        clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        read_time += end - start;
+    }
+#endif
+
+    if (write_event) clReleaseEvent(write_event);
+    if (kernel_event) clReleaseEvent(kernel_event);
+    if (finish_event) clReleaseEvent(finish_event);
+    //return kernel_event;
 }
     
 #endif
