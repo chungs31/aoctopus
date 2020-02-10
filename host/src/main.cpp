@@ -6,7 +6,7 @@
 // whom the Software is furnished to do so, subject to the following conditions:
 // The above copyright notice and this permission notice shall be included in all copies or
 // substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 // OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -15,21 +15,16 @@
 // WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
-// 
+//
 // This agreement shall be governed in all respects by the laws of the State of California and
 // by the laws of the United States of America.
 
-
 #include <vector>
 #include <iostream>
-#include <algorithm>
-#include <iostream>
-#include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include <thread>
-#include <functional>
+//#include <thread>
+//#include <functional>
 
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
@@ -38,19 +33,9 @@
 #include "octokernel.h"
 #include "lenet5.h"
 #include "common.h"
+#include "ocl_helper.h"
 
 using namespace aocl_utils;
-
-// OpenCL runtime configuration
-cl_platform_id platform = NULL;
-unsigned num_devices = 0;
-scoped_array<cl_device_id> device; // num_devices elements
-cl_context context = NULL;
-cl_program program = NULL;
-
-const cl_uint max_kernels_supported = 128;
-cl_kernel kernels[max_kernels_supported];
-int num_kernels; 
 
 double wall_clock_time;
 
@@ -58,60 +43,27 @@ std::vector<Octokernel*> octokernels;
 std::vector<std::vector<float> > weights; // imported weights from Keras
 std::vector<std::vector<size_t> > bufsizes; // buffer sizes
 
-// 0 fuse_conv2d_relu_kernel0
-// 1 fuse_avg_pool2d_kernel0 
-// 2 fuse_conv2d_relu_1_kernel0
-// 3 fuse_avg_pool2d_1_kernel0
-// 4 fuse_transpose_flatten_kernel0
-// 5 fuse_dense_relu_kernel0
-// 6 fuse_dense_relu_1_kernel0
-// 7 fuse_dense_kernel0
-// 8 fuse_softmax_kernel0
-
-// 0 54 
-// 1 6
-// 2 864
-// 3 16
-// 4 48000
-// 5 120
-// 6 10080
-// 7 84
-// 8 840
-// 9 10
-
 // Control whether the fast emulator should be used.
-bool use_fast_emulator = false;
-    
+
+
 scoped_array<scoped_aligned_ptr<float> > x_test;
 scoped_array<int> y_test;
 //scoped_array<int> d_y_test;
 
 int TEST_SET_SIZE = 10000;
 
-// Function prototypes
-bool init_opencl();
-void init_problem();
-void run();
-void cleanup();
-void profiler_output();
-//void pcie_bandwidth_test();
+
 
 // Entry point.
 int main(int argc, char **argv) {
     Options options(argc, argv);
 
-
     // Import weights from Keras
     weight_parser(config::file_weight, weights);
     printf("Weights imported: size %ld\n", weights.size());
-    
+
     bufsizes_parser(config::file_bufsizes, bufsizes); // This is not weights but testing
     printf("Buf sizes imported: size %ld\n", bufsizes.size());
-
-    // Optional argument to specify the problem size.
-    /*if(options.has("n")) {
-      N = options.get<unsigned>("n");
-      }*/
 
     // Optional argument to specify whether the fast emulator should be used.
     if(options.has("fast-emulator")) {
@@ -130,12 +82,17 @@ int main(int argc, char **argv) {
     // Initialize the problem data.
     // Requires the number of devices to be known.
     init_problem();
-    
+
     // Run the kernel.
     run();
 
     // Free the resources allocated
     cleanup();
+
+    // Free octokernels
+    for (auto obj : octokernels) {
+        delete obj;
+    }
 
     // Print profiling times
     profiler_output();
@@ -146,58 +103,22 @@ int main(int argc, char **argv) {
 /////// HELPER FUNCTIONS ///////
 // Initializes the OpenCL objects.
 bool init_opencl() {
-    cl_int status;
-
     printf("Initializing OpenCL\n");
 
-    if(!setCwdToExeDir()) {
-        return false;
-    }
+    cl_int status = init_opencl_internals();
+    checkError(status, "Failed to initialize OpenCL internals");
 
-    // Get the OpenCL platform.
-    if (use_fast_emulator) {
-        platform = findPlatform("Intel(R) FPGA Emulation Platform for OpenCL(TM)");
-    } else {
-        platform = findPlatform("Intel(R) FPGA SDK for OpenCL(TM)");
-    }
-    if(platform == NULL) {
-        printf("ERROR: Unable to find Intel(R) FPGA OpenCL platform.\n");
-        return false;
-    }
-
-    // Query the available OpenCL device.
-    device.reset(getDevices(platform, CL_DEVICE_TYPE_ALL, &num_devices));
-    printf("Platform: %s\n", getPlatformName(platform).c_str());
-    printf("Using %d device(s)\n", num_devices);
-    for(unsigned i = 0; i < num_devices; ++i) {
-        printf("  %s\n", getDeviceName(device[i]).c_str());
-    }
-
-    // Create the context.
-    context = clCreateContext(NULL, num_devices, device, &oclContextCallback, NULL, &status);
-    checkError(status, "Failed to create context");
-
-    // Create the program for all device. Use the first device as the
-    // representative device (assuming all device are of the same type).
-    std::string binary_file = getBoardBinaryFile("aocl", device[0]);
-    printf("Using AOCX: %s\n", binary_file.c_str());
-    program = createProgramFromBinary(context, binary_file.c_str(), device, num_devices);
-
-    // Build the program that was just created.
-    status = clBuildProgram(program, 0, NULL, "", NULL, NULL);
-    checkError(status, "Failed to build program");
-
-    // Build the kernels now from the program
-    status = clCreateKernelsInProgram(program, max_kernels_supported, kernels, (cl_uint *) &num_kernels);
+    // Build the kernels now from the oclinfo.program
+    status = clCreateKernelsInProgram(oclinfo.program, max_kernels_supported, kernels, (cl_uint *) &num_kernels);
     printf("Num kernels returned: %d\n", num_kernels);
-    
+
     // If Intel Internal Autorun Profiling is on, have to decrease
 #ifdef INTEL_PROFILER_ENABLE
     num_kernels--;
 #endif
 
     for (int kern_id = 0; kern_id < num_kernels; kern_id++) {
-        char func_name[128]; 
+        char func_name[128];
         cl_uint num_args;
 
         status = clGetKernelInfo(kernels[kern_id], CL_KERNEL_FUNCTION_NAME, 128, (void *) func_name, NULL);
@@ -208,20 +129,20 @@ bool init_opencl() {
         printf("kernel name %s has %d arguments\n", func_name, num_args);
     }
 
-    for(unsigned i = 0; i < num_devices; ++i) {
+    for(unsigned i = 0; i < oclinfo.num_devices; ++i) {
         // Kernel
         for (int kernel = 0; kernel < num_kernels; kernel++) {
             printf("Registering new kernel index %d named %s with %d bufs\n", kernel, config::cfg_network[kernel].func_name, config::cfg_network[kernel].n_bufs);
 
             octokernels.push_back(new Octokernel(
-                context, 
-                device[i],
-                program,
-                config::cfg_network[kernel].func_name, 
-                // config::cfg_network[kernel].n_bufs, 
-                config::cfg_network[kernel].buf_sizes, 
+                oclinfo.context,
+                oclinfo.device[i],
+                oclinfo.program,
+                config::cfg_network[kernel].func_name,
+                // config::cfg_network[kernel].n_bufs,
+                config::cfg_network[kernel].buf_sizes,
                 //bufsizes[kernel],
-                config::cfg_network[kernel].buf_type, 
+                config::cfg_network[kernel].buf_type,
                 config::cfg_network[kernel].output_layer_idx,
                 config::cfg_network[kernel].input_layer_idx
             ));
@@ -237,9 +158,9 @@ bool init_opencl() {
     return true;
 }
 
-// Initialize the data for the problem. Requires num_devices to be known.
+// Initialize the data for the problem. Requires oclinfo.num_devices to be known.
 void init_problem() {
-    if(num_devices == 0) {
+    if(oclinfo.num_devices == 0) {
         checkError(-1, "No devices");
     }
 
@@ -266,10 +187,10 @@ void init_problem() {
         // MOBILENET
 
         //else { */
-        
+
         // THIS IS THE DEFAULT MOBILENET CONFIGUROR
         /*
-            if (num_args < 5) { 
+            if (num_args < 5) {
                 // Only kernels with 5 arguments have weights/biases.
                 // Don't load them.
                 continue;
@@ -291,12 +212,12 @@ void init_problem() {
             }
         }
         */
-        
+
 
         //}
     }
 
-    // All weights should have been mapped. 
+    // All weights should have been mapped.
     assert(weight_idx == weights.size());
 }
 
@@ -305,11 +226,11 @@ void run() {
 
     Octokernel *last = octokernels[num_kernels- 1];
     const double start_time = getCurrentTimestamp();
-    
+
     // Copy the weights to global memory
     for (int k = 0; k < num_kernels; k++) {
         // MOBILENET
-        //if (!octokernels[k]->is_input_or_output_layer()) 
+        //if (!octokernels[k]->is_input_or_output_layer())
         //    octokernels[k]->copy_weights_to_bufs();
         octokernels[k]->copy_weights_to_bufs();
 
@@ -326,11 +247,11 @@ void run() {
     size_t output_size = last->get_buf_size(last->get_output_idx());
     for (int i = 0; i < TEST_SET_SIZE; i++) {
         // Allocate space for last output to be copied here.
-        d_y[i].reset(output_size); 
+        d_y[i].reset(output_size);
     }
 
     const double exec_time = getCurrentTimestamp();
-    //std::thread read_thread = std::thread(&Octokernel::copy_output_from_to_fcn, last, std::ref(d_y)); 
+    //std::thread read_thread = std::thread(&Octokernel::copy_output_from_to_fcn, last, std::ref(d_y));
     for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
         //if (i % 100 == 0) {
             printf("%5d/%d\r", i, TEST_SET_SIZE);
@@ -347,14 +268,14 @@ void run() {
             //
             //}
             /* uncomment for reuse
-            if (k == 3) { 
+            if (k == 3) {
                 octokernels[k]->enqueue_kernel_reuse();
             }
             else if (k == 4) {
                 octokernels[k]->enqueue_kernel(0);
             }
             */
-            if (k == 2) { 
+            if (k == 2) {
                 octokernels[k]->enqueue_kernel_reuse();
             }
             else {
@@ -383,7 +304,7 @@ void run() {
     // Verify
     int incorrect = 0;
     for (int i = 0; i < TEST_SET_SIZE; i++) {
-        
+
         //printf("Prediction: \n");
         //printf("[");
         float max_val = -100000.0;
@@ -397,60 +318,22 @@ void run() {
                 printf("%f", d_y[i][output_idx]);
             }
             */
-            
+
             if (d_y[i][output_idx] > max_val) {
                 max_val = d_y[i][output_idx];
                 max_idx = output_idx;
             }
         }
         predictions[i] = max_idx;
-        
+
         //printf("]\n");
         //printf("Predicted class: %d\n", max_idx);
-       
+
         // Verification step: skip for now
         if (predictions[i] != y_test[i]) {
             incorrect++;
         }
     }
 
-    
     printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
 }
-
-
-
-// Free the resources allocated during initialization
-void cleanup() {
-    for (auto obj : octokernels) {
-        delete obj;
-    }
-
-    for (int i = 0; i < num_kernels; i++) {
-        clReleaseKernel(kernels[i]);
-    }
-
-    if(program) {
-        clReleaseProgram(program);
-    }
-    if(context) {
-        clReleaseContext(context);
-    }
-}
-
-void profiler_output() {
-#ifdef OPENCL_PROFILER_ENABLE
-    printf("OpenCL event profiler output\n");
-    double sum = 0;
-    for (int kernel = 0; kernel < num_kernels; kernel++) {
-        sum += octokernels[kernel]->kernel_time;
-        printf("Kernel %d execution time: %f ms\n", kernel, (double) octokernels[kernel]->kernel_time / 1000000.0);
-    }
-    printf("Total Kernel execution time: %f ms\n", (double) sum / 1000000.0);
-    printf("Write to FPGA time: %f ms\n", (double) write_time / 1000000.0);
-    printf("Read to FPGA time: %f ms\n", (double) read_time / 1000000.0);
-    printf("Idle time: %f ms\n", wall_clock_time - (double)(sum+write_time+read_time)/1000000.0);
-#endif
-    printf("Wall clock time: %0.3f ms\n", wall_clock_time);
-}
-
