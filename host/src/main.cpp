@@ -26,9 +26,6 @@ scoped_array<int> y_test;
 
 int TEST_SET_SIZE = 10000;
 
-MNIST_Importer m_imp;
-Importer *importer = &m_imp;
-
 // Entry point.
 int main(int argc, char **argv) {
     Options options(argc, argv);
@@ -139,14 +136,9 @@ void init_problem() {
         checkError(-1, "No devices");
     }
 
-    //import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test);
 
-    config::octocfg->importer->import_input_data(x_test, y_test);
-        
-
-    //import_imagenet("../data/cat224224.db", NULL, x_test, y_test);
-    //generate_random(TEST_SET_SIZE, 224*224*3, x_test);
-    //y_test.reset();
+    config::octocfg->importer->import_input_data(x_test, y_test);    /* for real data */
+    //config::octocfg->importer->generate_random_input(10000, x_test); /* for random data */
 
     // Map weights to layers. Copy to read-only buffers that are not the input buffers.
     // Works for LeNet5...

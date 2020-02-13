@@ -134,11 +134,12 @@ void ImageNet_Importer::import_input_data(
     import_input_dataset(num_inputs, input_dim, "../data/cat224224.db", NULL, x_test, y_test); 
 }
 
-void generate_random(int num_inputs, int input_size, aocl_utils::scoped_array<scoped_aligned_ptr<float> > &x_test) {
+void Importer::generate_random_input(int _num_inputs, aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float> > &x_test) {
+    num_inputs = _num_inputs;
     x_test.reset(num_inputs);
     for (int i = 0; i < num_inputs; i++) {
-        x_test[i].reset(input_size);
-        for (int j = 0; j < input_size; j++) {
+        x_test[i].reset(input_dim);
+        for (int j = 0; j < input_dim; j++) {
             x_test[i][j] = rand_float();
         }
     }
