@@ -31,10 +31,10 @@ int main(int argc, char **argv) {
     Options options(argc, argv);
 
     // Import weights from Keras
-    weight_parser(config::file_weight, weights);
+    weight_parser(config::octocfg->f_weight.c_str(), weights);
     printf("Weights imported: size %ld\n", weights.size());
     
-    bufsizes_parser(config::file_bufsizes, bufsizes); // This is not weights but testing
+    bufsizes_parser(config::octocfg->f_bufsizes.c_str(), bufsizes); // This is not weights but testing
     printf("Buf sizes imported: size %ld\n", bufsizes.size());
 
     // Optional argument to specify whether the fast emulator should be used.
@@ -104,19 +104,19 @@ bool init_opencl() {
     for(unsigned i = 0; i < oclinfo.num_devices; ++i) {
         // Kernel
         for (int kernel = 0; kernel < num_kernels; kernel++) {
-            printf("Registering new kernel index %d named %s with %d bufs\n", kernel, config::cfg_network[kernel].func_name, config::cfg_network[kernel].n_bufs);
+            printf("Registering new kernel index %d named %s with %d bufs\n", kernel, config::octocfg->cfg_network[kernel].func_name, config::octocfg->cfg_network[kernel].n_bufs);
 
             octokernels.push_back(new Octokernel(
                 oclinfo.context,
                 oclinfo.device[i],
                 oclinfo.program,
-                config::cfg_network[kernel].func_name,
-                // config::cfg_network[kernel].n_bufs,
-                config::cfg_network[kernel].buf_sizes,
+                config::octocfg->cfg_network[kernel].func_name,
+                // config::octocfg->cfg_network[kernel].n_bufs,
+                config::octocfg->cfg_network[kernel].buf_sizes,
                 //bufsizes[kernel],
-                config::cfg_network[kernel].buf_type,
-                config::cfg_network[kernel].output_layer_idx,
-                config::cfg_network[kernel].input_layer_idx
+                config::octocfg->cfg_network[kernel].buf_type,
+                config::octocfg->cfg_network[kernel].output_layer_idx,
+                config::octocfg->cfg_network[kernel].input_layer_idx
             ));
             if (kernel > 0) {
                 octokernels[kernel]->set_buffer_from_prev(octokernels[kernel - 1]);
@@ -137,7 +137,7 @@ void init_problem() {
     }
 
 
-    config::octocfg->importer->import_input_data(x_test, y_test);    /* for real data */
+    config::octocfg->importer.import_input_data(x_test, y_test);    /* for real data */
     //config::octocfg->importer->generate_random_input(10000, x_test); /* for random data */
 
     // Map weights to layers. Copy to read-only buffers that are not the input buffers.

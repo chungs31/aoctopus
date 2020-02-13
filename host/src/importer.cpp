@@ -77,19 +77,11 @@ void bufsizes_parser(const char *filename, vector<vector<size_t> > &weights) {
     infile.close();
 }
 
-void MNIST_Importer::import_input_data(
+void Importer::import_input_data(
         scoped_array<scoped_aligned_ptr<float>> &x_test, 
         scoped_array<int> &y_test
 ) {
-    import_input_dataset(num_inputs, input_dim, "../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test); 
-}
-
-void ImageNet_Importer::import_input_data(
-        scoped_array<scoped_aligned_ptr<float>> &x_test, 
-        scoped_array<int> &y_test
-) {
-    // Might be 227 for some, 224 for other networks.
-    import_input_dataset(num_inputs, input_dim, "../data/cat224224.db", NULL, x_test, y_test); 
+    import_input_dataset(num_inputs, input_dim, f_input.c_str(), f_ref_output.c_str(), x_test, y_test); 
 }
 
 void Importer::generate_random_input(int _num_inputs, scoped_array<scoped_aligned_ptr<float> > &x_test) {
