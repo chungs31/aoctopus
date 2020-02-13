@@ -4,14 +4,63 @@
 #include <string>
 #include <vector>
 #include "AOCLUtils/aocl_utils.h"
+#include "importer.h"
 
 using namespace std;
 using namespace aocl_utils;
 
-float rand_float(); 
-
-float rand_float() {
+static float rand_float() {
     return float(rand()) / float(RAND_MAX) * 20.0f - 10.0f;
+}
+
+template <class T>
+static void import_input_dataset(
+        unsigned int num_inputs,
+        unsigned int input_dim,
+        const char *x_test_path, 
+        const char *y_test_path, 
+        aocl_utils::scoped_array<scoped_aligned_ptr<T> > &x_test, 
+        aocl_utils::scoped_array<int> &y_test
+) {
+    ifstream infile(x_test_path);
+    ifstream yfile(y_test_path);
+    
+    /* Obtain input data */
+    x_test.reset(num_inputs);
+    string line;
+    int i = 0;
+    while (getline(infile, line)) {
+        x_test[i].reset(input_dim);
+        stringstream ss(line);
+        T weight;
+        char dummy;
+        ss >> dummy;
+        int j = 0;
+
+        while (ss >> weight) {
+            x_test[i][j] = weight;
+            j++;
+            ss >> dummy;
+        }
+        i++;
+    }
+
+    /* Get reference answers */
+    y_test.reset(num_inputs);
+    
+    getline(yfile, line);
+    stringstream ss(line);
+    int y; // Assuming classification is int (index)
+    i = 0;
+    char dummy;
+    ss >> dummy;
+    while (ss >> y) {
+        y_test[i++] = y;
+        ss >> dummy;
+    }
+
+    infile.close();
+    yfile.close();
 }
 
 void weight_parser(const char *filename, vector<vector<float> > &weights) {
@@ -70,88 +119,19 @@ void bufsizes_parser(const char *filename, vector<vector<size_t> > &weights) {
     infile.close();
 }
 
-void import_mnist(const char *x_test, const char *y_test, aocl_utils::scoped_array<scoped_aligned_ptr<float> > &mnist_x_test, aocl_utils::scoped_array<int> &mnist_y_test) {
-    ifstream infile(x_test);
-    mnist_x_test.reset(10000);
-
-    string line;
-    int i = 0;
-    while (getline(infile, line)) {
-        mnist_x_test[i].reset(784);
-        stringstream ss(line);
-        float weight;
-        char dummy;
-        ss >> dummy;
-        int j = 0;
-
-        while (ss >> weight) {
-            mnist_x_test[i][j] = weight;
-            j++;
-            ss >> dummy;
-        }
-        i++;
-    }
-
-
-    ifstream yfile(y_test);
-    mnist_y_test.reset(10000);
-    
-    getline(yfile, line);
-    stringstream ss(line);
-    int y;
-    i = 0;
-    char dummy;
-    ss >> dummy;
-    while (ss >> y) {
-        mnist_y_test[i++] = y;
-        ss >> dummy;
-    }
-
-    infile.close();
-    yfile.close();
+void MNIST_Importer::import_input_data(
+        aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &x_test, 
+        aocl_utils::scoped_array<int> &y_test
+) {
+    import_input_dataset(num_inputs, input_dim, "../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test); 
 }
 
-void import_imagenet(const char *x_test, const char *y_test, aocl_utils::scoped_array<scoped_aligned_ptr<float> > &out_x_test, aocl_utils::scoped_array<int> &out_y_test) {
-    ifstream infile(x_test);
-    out_x_test.reset(1);
-
-    string line;
-    int i = 0;
-    while (getline(infile, line)) {
-        out_x_test[i].reset(224*224*3);
-        stringstream ss(line);
-        float weight;
-        char dummy;
-        ss >> dummy;
-        int j = 0;
-
-        while (ss >> weight) {
-            out_x_test[i][j] = weight;
-            j++;
-            ss >> dummy;
-        }
-        i++;
-    }
-
-
-    /*
-    ifstream yfile(y_test);
-    out_y_test.reset(1);
-    
-    getline(yfile, line);
-    stringstream ss(line);
-    int y;
-    i = 0;
-    char dummy;
-    ss >> dummy;
-    while (ss >> y) {
-        out_y_test[i++] = y;
-        ss >> dummy;
-    }
-    */
-
-    infile.close();
-    //yfile.close();
+void ImageNet_Importer::import_input_data(
+        aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &x_test, 
+        aocl_utils::scoped_array<int> &y_test
+) {
+    // Might be 227 for some, 224 for other networks.
+    import_input_dataset(num_inputs, input_dim, "../data/cat224224.db", NULL, x_test, y_test); 
 }
 
 void generate_random(int num_inputs, int input_size, aocl_utils::scoped_array<scoped_aligned_ptr<float> > &x_test) {
@@ -163,22 +143,5 @@ void generate_random(int num_inputs, int input_size, aocl_utils::scoped_array<sc
         }
     }
 }
-
-/*
-int main() {
-    vector<vector<float>> weights;
-
-    weight_parser("mnist_weight_dump.txt", weights);
-
-    for (auto i : weights) {
-        for (auto j : i) {
-            cout << j << " ";
-        }
-        cout << endl;
-    }
-
-    return 0;
-}
-*/
 
 

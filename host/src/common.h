@@ -12,6 +12,7 @@
 #include "layer.h"
 #include "imagenet.h"
 #include "lenet5.h"
+#include "importer.h"
 #include <string>
 
 /* Concurrent Execution
@@ -51,23 +52,27 @@ struct OctoCfg {
     std::string f_bufsizes;
     std::string f_input;
     Layer *cfg_network;
+    Importer *importer;
 };
 
-OctoCfg *cfg = NULL;
 
 OctoCfg LeNet5 {
     .f_weight="../data/mnist_weight_dump.txt",
     .f_bufsizes="",
     .f_input="",
-    .cfg_network = LeNet5::reuse_fused_network
+    .cfg_network = LeNet5::reuse_fused_network,
+    .importer = new MNIST_Importer()
 };
 
 OctoCfg MobileNetV2 {
     .f_weight="../data/inet_mnet_params.txt",
     .f_bufsizes="../data/inet_mnet_channels_bufsizes.txt",
     .f_input="../data/cat244244.db",
-    .cfg_network = ImageNet::MobileNet_channels
+    .cfg_network = ImageNet::MobileNet_channels,
+    .importer = new ImageNet_Importer()
 };
+
+OctoCfg *octocfg = &LeNet5;
 
 //const char file_weight[] = "../data/inet_sqnet_params.txt";
 //const char file_weight[] = "../data/mnist_weight_dump.txt";

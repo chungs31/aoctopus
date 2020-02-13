@@ -1,30 +1,7 @@
-// Copyright (C) 2013-2019 Altera Corporation, San Jose, California, USA. All rights reserved.
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this
-// software and associated documentation files (the "Software"), to deal in the Software
-// without restriction, including without limitation the rights to use, copy, modify, merge,
-// publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to
-// whom the Software is furnished to do so, subject to the following conditions:
-// The above copyright notice and this permission notice shall be included in all copies or
-// substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-// OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-// HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-// WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-// OTHER DEALINGS IN THE SOFTWARE.
-//
-// This agreement shall be governed in all respects by the laws of the State of California and
-// by the laws of the United States of America.
-
 #include <vector>
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-//#include <thread>
-//#include <functional>
 
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
@@ -43,16 +20,14 @@ std::vector<Octokernel*> octokernels;
 std::vector<std::vector<float> > weights; // imported weights from Keras
 std::vector<std::vector<size_t> > bufsizes; // buffer sizes
 
-// Control whether the fast emulator should be used.
-
-
 scoped_array<scoped_aligned_ptr<float> > x_test;
 scoped_array<int> y_test;
 //scoped_array<int> d_y_test;
 
 int TEST_SET_SIZE = 10000;
 
-
+MNIST_Importer m_imp;
+Importer *importer = &m_imp;
 
 // Entry point.
 int main(int argc, char **argv) {
@@ -61,7 +36,7 @@ int main(int argc, char **argv) {
     // Import weights from Keras
     weight_parser(config::file_weight, weights);
     printf("Weights imported: size %ld\n", weights.size());
-
+    
     bufsizes_parser(config::file_bufsizes, bufsizes); // This is not weights but testing
     printf("Buf sizes imported: size %ld\n", bufsizes.size());
 
@@ -164,7 +139,11 @@ void init_problem() {
         checkError(-1, "No devices");
     }
 
-    import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test);
+    //import_mnist("../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test);
+
+    config::octocfg->importer->import_input_data(x_test, y_test);
+        
+
     //import_imagenet("../data/cat224224.db", NULL, x_test, y_test);
     //generate_random(TEST_SET_SIZE, 224*224*3, x_test);
     //y_test.reset();
