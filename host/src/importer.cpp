@@ -78,21 +78,21 @@ void bufsizes_parser(const char *filename, vector<vector<size_t> > &weights) {
 }
 
 void MNIST_Importer::import_input_data(
-        aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &x_test, 
-        aocl_utils::scoped_array<int> &y_test
+        scoped_array<scoped_aligned_ptr<float>> &x_test, 
+        scoped_array<int> &y_test
 ) {
     import_input_dataset(num_inputs, input_dim, "../data/mnist_test.db", "../data/mnist_test_y.db", x_test, y_test); 
 }
 
 void ImageNet_Importer::import_input_data(
-        aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &x_test, 
-        aocl_utils::scoped_array<int> &y_test
+        scoped_array<scoped_aligned_ptr<float>> &x_test, 
+        scoped_array<int> &y_test
 ) {
     // Might be 227 for some, 224 for other networks.
     import_input_dataset(num_inputs, input_dim, "../data/cat224224.db", NULL, x_test, y_test); 
 }
 
-void Importer::generate_random_input(int _num_inputs, aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float> > &x_test) {
+void Importer::generate_random_input(int _num_inputs, scoped_array<scoped_aligned_ptr<float> > &x_test) {
     num_inputs = _num_inputs;
     x_test.reset(num_inputs);
     for (int i = 0; i < num_inputs; i++) {
@@ -113,8 +113,8 @@ static void import_input_dataset(
         unsigned int input_dim,
         const char *x_test_path, 
         const char *y_test_path, 
-        aocl_utils::scoped_array<scoped_aligned_ptr<T> > &x_test, 
-        aocl_utils::scoped_array<int> &y_test
+        scoped_array<scoped_aligned_ptr<T> > &x_test, 
+        scoped_array<int> &y_test
 ) {
     ifstream infile(x_test_path);
     ifstream yfile(y_test_path);
