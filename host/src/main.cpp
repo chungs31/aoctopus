@@ -224,10 +224,10 @@ void run() {
     const double exec_time = getCurrentTimestamp();
     //std::thread read_thread = std::thread(&Octokernel::copy_output_from_to_fcn, last, std::ref(d_y));
     for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
-        //if (i % 100 == 0) {
-            printf("%5d/%d\r", i, TEST_SET_SIZE);
+        if ((i+1) % 100 == 0 || i+1 == TEST_SET_SIZE) {
+            printf("%5d/%d\r", i+1, TEST_SET_SIZE);
             fflush(stdout);
-        //}
+        }
 
         // Write input to host memory. Will be copied to buffer in enqueue.
         octokernels[0]->set_input_mem(x_test[i]);
