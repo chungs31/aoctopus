@@ -9,60 +9,18 @@
 using namespace std;
 using namespace aocl_utils;
 
-static float rand_float() {
-    return float(rand()) / float(RAND_MAX) * 20.0f - 10.0f;
-}
-
+static float rand_float();
 template <class T>
 static void import_input_dataset(
         unsigned int num_inputs,
         unsigned int input_dim,
         const char *x_test_path, 
         const char *y_test_path, 
-        aocl_utils::scoped_array<scoped_aligned_ptr<T> > &x_test, 
-        aocl_utils::scoped_array<int> &y_test
-) {
-    ifstream infile(x_test_path);
-    ifstream yfile(y_test_path);
-    
-    /* Obtain input data */
-    x_test.reset(num_inputs);
-    string line;
-    int i = 0;
-    while (getline(infile, line)) {
-        x_test[i].reset(input_dim);
-        stringstream ss(line);
-        T weight;
-        char dummy;
-        ss >> dummy;
-        int j = 0;
+        scoped_array<scoped_aligned_ptr<T> > &x_test, 
+        scoped_array<int> &y_test
+);
 
-        while (ss >> weight) {
-            x_test[i][j] = weight;
-            j++;
-            ss >> dummy;
-        }
-        i++;
-    }
-
-    /* Get reference answers */
-    y_test.reset(num_inputs);
-    
-    getline(yfile, line);
-    stringstream ss(line);
-    int y; // Assuming classification is int (index)
-    i = 0;
-    char dummy;
-    ss >> dummy;
-    while (ss >> y) {
-        y_test[i++] = y;
-        ss >> dummy;
-    }
-
-    infile.close();
-    yfile.close();
-}
-
+/* Parse weights from filename and put it into a vector (layer i) of vector of floats. */
 void weight_parser(const char *filename, vector<vector<float> > &weights) {
     ifstream infile(filename);
 
@@ -145,4 +103,57 @@ void Importer::generate_random_input(int _num_inputs, aocl_utils::scoped_array<a
     }
 }
 
+static float rand_float() {
+    return float(rand()) / float(RAND_MAX) * 20.0f - 10.0f;
+}
+
+template <class T>
+static void import_input_dataset(
+        unsigned int num_inputs,
+        unsigned int input_dim,
+        const char *x_test_path, 
+        const char *y_test_path, 
+        aocl_utils::scoped_array<scoped_aligned_ptr<T> > &x_test, 
+        aocl_utils::scoped_array<int> &y_test
+) {
+    ifstream infile(x_test_path);
+    ifstream yfile(y_test_path);
+    
+    /* Obtain input data */
+    x_test.reset(num_inputs);
+    string line;
+    int i = 0;
+    while (getline(infile, line)) {
+        x_test[i].reset(input_dim);
+        stringstream ss(line);
+        T weight;
+        char dummy;
+        ss >> dummy;
+        int j = 0;
+
+        while (ss >> weight) {
+            x_test[i][j] = weight;
+            j++;
+            ss >> dummy;
+        }
+        i++;
+    }
+
+    /* Get reference answers */
+    y_test.reset(num_inputs);
+    
+    getline(yfile, line);
+    stringstream ss(line);
+    int y; // Assuming classification is int (index)
+    i = 0;
+    char dummy;
+    ss >> dummy;
+    while (ss >> y) {
+        y_test[i++] = y;
+        ss >> dummy;
+    }
+
+    infile.close();
+    yfile.close();
+}
 
