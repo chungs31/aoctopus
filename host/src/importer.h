@@ -39,6 +39,5 @@ public:
 
 void weight_parser(const char *filename, std::vector<std::vector<float> > &weights);
 void bufsizes_parser(const char *filename, std::vector<std::vector<size_t> > &weights);
-//void generate_random(int num_inputs, int input_size, aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float> > &x_test);
 
 #endif
