@@ -273,38 +273,8 @@ void run() {
     scoped_array<int> predictions(TEST_SET_SIZE);
 
     // Verify
-    int incorrect = 0;
-    for (int i = 0; i < TEST_SET_SIZE; i++) {
-
-        //printf("Prediction: \n");
-        //printf("[");
-        float max_val = -100000.0;
-        int max_idx = -1000;
-        for (int output_idx = 0; output_idx < output_size; output_idx++) {
-            /*
-            if (output_idx != 9) {
-                printf("%f, ", d_y[i][output_idx]);
-            }
-            else {
-                printf("%f", d_y[i][output_idx]);
-            }
-            */
-
-            if (d_y[i][output_idx] > max_val) {
-                max_val = d_y[i][output_idx];
-                max_idx = output_idx;
-            }
-        }
-        predictions[i] = max_idx;
-
-        //printf("]\n");
-        //printf("Predicted class: %d\n", max_idx);
-
-        // Verification step: skip for now
-        if (predictions[i] != y_test[i]) {
-            incorrect++;
-        }
-    }
-
+    config::octocfg->executor.num_inputs = TEST_SET_SIZE;                     // Set number of inputs
+    config::octocfg->executor.predict(d_y, predictions);                      // Calculate predictions
+    int incorrect = config::octocfg->executor.verify(predictions, y_test);    // Compare predictions to reference
     printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
 }
