@@ -11,6 +11,7 @@
 #include "lenet5.h"
 #include "common.h"
 #include "ocl_helper.h"
+#include "runtime.h"
 
 using namespace aocl_utils;
 
