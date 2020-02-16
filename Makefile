@@ -81,26 +81,38 @@ TARGET_DIR := bin
 PCIE_BW_TEST_TARGET := test_pcie_bw
 
 # Directories
-INC_DIRS := common/inc
+INC_DIRS := common/inc host/inc
 LIB_DIRS := 
 
 # Files
 INCS := $(wildcard )
-SRCS := $(wildcard host/src/*.cpp host/src/*.h common/src/AOCLUtils/*.cpp)
+SRCS := $(wildcard host/src/*.cpp common/src/AOCLUtils/*.cpp)
 LIBS := rt pthread
 
-PBT_SRCS := $(wildcard host/src/utility/*.cpp host/src/utility/*.h common/src/AOCLUtils/*.cpp)
+PBT_SRCS := $(wildcard host/src/utility/*.cpp common/src/AOCLUtils/*.cpp)
+
+# Objects
+OBJECT_DIR := obj
+OBJS := $(SRCS:%.cpp=$(OBJECT_DIR)/%.o)
 
 # Make it all!
-all : $(TARGET_DIR)/$(TARGET) $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET)
+all : $(TARGET_DIR)/$(TARGET) 
+#$(TARGET_DIR)/$(PCIE_BW_TEST_TARGET)
 
 # Host executable target.
-$(TARGET_DIR)/$(TARGET) : Makefile $(SRCS) $(INCS) $(TARGET_DIR)
+$(TARGET_DIR)/$(TARGET) : $(OBJECT_DIR) $(OBJS)
 	$(ECHO)$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(EXTRACXXFLAGS) -fPIC $(foreach D,$(INC_DIRS),-I$D) \
-			$(AOCL_COMPILE_CONFIG) $(SRCS) $(AOCL_LINK_CONFIG) \
+			$(AOCL_COMPILE_CONFIG) $(AOCL_LINK_CONFIG) \
 			$(foreach D,$(LIB_DIRS),-L$D) \
 			$(foreach L,$(LIBS),-l$L) \
-			-o $(TARGET_DIR)/$(TARGET)
+			-o $@ $(OBJS)
+	
+#$(TARGET_DIR)/$(TARGET)
+
+$(OBJECT_DIR)/%.o: %.cpp
+	$(ECHO)$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(EXTRACXXFLAGS) -fPIC $(foreach D,$(INC_DIRS),-I$D) \
+			$(AOCL_COMPILE_CONFIG) \
+			-c -o $@ $<
 
 $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET) : Makefile $(PBT_SRCS) $(INCS) $(TARGET_DIR)
 	$(ECHO)$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(EXTRACXXFLAGS) -fPIC $(foreach D,$(INC_DIRS),-I$D) \
@@ -108,12 +120,14 @@ $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET) : Makefile $(PBT_SRCS) $(INCS) $(TARGET_DIR
 			$(foreach D,$(LIB_DIRS),-L$D) \
 			$(foreach L,$(LIBS),-l$L) \
 			-o $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET)
+$(OBJECT_DIR) :
+	$(ECHO)mkdir -p $(OBJECT_DIR)/host/src $(OBJECT_DIR)/common/src/AOCLUtils
 
 $(TARGET_DIR) :
 	$(ECHO)mkdir $(TARGET_DIR)
 	
 # Standard make targets
 clean :
-	$(ECHO)rm -f $(TARGET_DIR)/$(TARGET) $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET)
+	$(ECHO)rm -rf $(TARGET_DIR)/$(TARGET) $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET) $(OBJECT_DIR)
 
 .PHONY : all clean
