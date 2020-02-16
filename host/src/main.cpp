@@ -8,7 +8,8 @@
 
 #include "importer.h"
 #include "octokernel.h"
-#include "lenet5.h"
+//#include "lenet5.h"
+#include "networks.h"
 #include "common.h"
 #include "ocl_helper.h"
 #include "runtime.h"

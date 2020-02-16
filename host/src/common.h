@@ -10,8 +10,8 @@
 
 #include "CL/opencl.h"
 #include "layer.h"
-#include "imagenet.h"
-#include "lenet5.h"
+//#include "imagenet.h"
+#include "networks.h"
 #include "importer.h"
 #include "runtime.h"
 #include <string>
