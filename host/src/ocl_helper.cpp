@@ -1,5 +1,4 @@
 #include "ocl_helper.h"
-#include "AOCLUtils/aocl_utils.h"
 
 using namespace aocl_utils;
 

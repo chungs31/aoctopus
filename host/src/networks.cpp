@@ -1,5 +1,4 @@
 #include "networks.h"
-#include "layer.h"
 
 namespace LeNet5 {
 

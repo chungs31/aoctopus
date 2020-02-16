@@ -7,10 +7,10 @@
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
 
-#include "importer.h"
-#include "octokernel.h"
-#include "networks.h"
 #include "common.h"
+#include "importer.h"
+#include "networks.h"
+#include "octokernel.h"
 #include "ocl_helper.h"
 #include "runtime.h"
 

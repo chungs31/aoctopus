@@ -2,7 +2,6 @@
 #define LAYER_H
 
 #include <vector>
-#include <stdlib.h>
 #include "CL/opencl.h"
 
 // Alias of CL mem types for convenience
@@ -20,7 +19,6 @@ struct Layer {
     int output_layer_idx;
     int input_layer_idx;
 };
-
 
 #endif /* LAYER_H */
 
