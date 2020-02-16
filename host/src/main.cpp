@@ -18,13 +18,13 @@ using namespace aocl_utils;
 
 double wall_clock_time;
 
+//scoped_array<int> d_y_test;
 std::vector<Octokernel*> octokernels;
 std::vector<std::vector<float> > weights; // imported weights from Keras
 std::vector<std::vector<size_t> > bufsizes; // buffer sizes
 
 scoped_array<scoped_aligned_ptr<float> > x_test;
 scoped_array<int> y_test;
-//scoped_array<int> d_y_test;
 
 int TEST_SET_SIZE = 10000;
 
@@ -196,6 +196,7 @@ void init_problem() {
 
 void run() {
     cl_int status;
+    config::octocfg->executor.num_inputs = TEST_SET_SIZE;                     // Set number of inputs
 
     Octokernel *last = octokernels[num_kernels- 1];
     const double start_time = getCurrentTimestamp();
@@ -225,7 +226,7 @@ void run() {
 
     const double exec_time = getCurrentTimestamp();
     //std::thread read_thread = std::thread(&Octokernel::copy_output_from_to_fcn, last, std::ref(d_y));
-    for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
+    /*for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
         if ((i+1) % 100 == 0 || i+1 == TEST_SET_SIZE) {
             printf("%5d/%d\r", i+1, TEST_SET_SIZE);
             fflush(stdout);
@@ -240,14 +241,12 @@ void run() {
             //    read_thread.join();
             //
             //}
-            /* uncomment for reuse
             if (k == 3) {
                 octokernels[k]->enqueue_kernel_reuse();
             }
             else if (k == 4) {
                 octokernels[k]->enqueue_kernel(0);
             }
-            */
             if (k == 2) {
                 octokernels[k]->enqueue_kernel_reuse();
             }
@@ -265,6 +264,8 @@ void run() {
     //printf("%d copied, %d ready\n", last->num_copied, last->num_ready);
     //read_thread.join();
     printf("\n");
+    */
+    config::octocfg->executor.run(d_y);
 
     // Wait for all devices to finish.
     const double end_time = getCurrentTimestamp();
@@ -275,7 +276,6 @@ void run() {
     scoped_array<int> predictions(TEST_SET_SIZE);
 
     // Verify
-    config::octocfg->executor.num_inputs = TEST_SET_SIZE;                     // Set number of inputs
     config::octocfg->executor.predict(d_y, predictions);                      // Calculate predictions
     int incorrect = config::octocfg->executor.verify(predictions, y_test);    // Compare predictions to reference
     printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));

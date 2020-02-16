@@ -17,7 +17,6 @@
 
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
-#include "common.h"
 
 int buffer_mapper(int n_args, int for_input_idx);
 
@@ -133,7 +132,8 @@ public:
         //out.reset(buf_lens[output_idx]);
         std::memcpy(out, host_mems[output_idx], buf_lens[output_idx] * sizeof(float));
     }
-    
+   
+    /*
     void copy_output_from_to_fcn(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float> > &out) {
         while (num_copied < TEST_SET_SIZE) {
             if (num_ready > num_copied) {
@@ -145,6 +145,7 @@ public:
             }
         }
     }
+    */
 
     void set_as_input_layer() { is_input_layer = true; };
     void set_as_output_layer() { is_output_layer = true; };
