@@ -130,6 +130,7 @@ $(TARGET_DIR) :
 	
 # Standard make targets
 clean :
-	$(ECHO)rm -rf $(TARGET_DIR)/$(TARGET) $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET) $(OBJECT_DIR)
+	$(ECHO)rm -f $(TARGET_DIR)/$(TARGET) $(TARGET_DIR)/$(PCIE_BW_TEST_TARGET)
+	$(ECHO)rm -rf $(OBJECT_DIR)
 
 .PHONY : all clean
