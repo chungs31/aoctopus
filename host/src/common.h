@@ -9,12 +9,11 @@
 #define COMMON_H
 
 #include "CL/opencl.h"
-#include "layer.h"
-//#include "imagenet.h"
-#include "networks.h"
 #include "importer.h"
 #include "runtime.h"
 #include <string>
+
+class Layer;
 
 /* Concurrent Execution
  *
@@ -56,32 +55,11 @@ struct OctoCfg {
     Executor executor;
 };
 
-OctoCfg LeNet5 {
-    .f_weight="../data/mnist_weight_dump.txt",
-    .f_bufsizes="",
-    .cfg_network = LeNet5::reuse_fused_network,
-    .importer = Importer(10000, 784, "../data/mnist_test.db", "../data/mnist_test_y.db"),
-    .executor = Executor(10000, 10)
-};
+extern OctoCfg LeNet5;
+extern OctoCfg MobileNetV2;
+extern OctoCfg SqueezeNet;
 
-OctoCfg MobileNetV2 {
-    .f_weight="../data/inet_mnet_params.txt",
-    .f_bufsizes="../data/inet_mnet_channels_bufsizes.txt",
-    .cfg_network = ImageNet::MobileNet_channels,
-    .importer = Importer(1, 224*224*3, "../data/cat244244.db", ""), 
-    .executor = Executor(1, 1000)
-};
-
-OctoCfg SqueezeNet {
-    .f_weight="../data/inet_sqnet_params.txt",
-    .f_bufsizes="",
-    .cfg_network = ImageNet::SqueezeNet,
-    .importer = Importer(1, 224*224*3, "../data/cat244244.db", ""),
-    .executor = Executor(1, 1000)
-};
-
-/* Modify this to choose network */
-OctoCfg *octocfg = &LeNet5;
+extern OctoCfg *octocfg;
 
 }
 
