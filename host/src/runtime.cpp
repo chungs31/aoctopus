@@ -8,10 +8,10 @@ using namespace aocl_utils;
 void Executor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) {
     Octokernel *last = octokernels[num_kernels- 1];
     for (unsigned i = 0; i < num_inputs; ++i) {
-        if ((i+1) % 100 == 0 || i+1 == num_inputs) {
+        //if ((i+1) % 100 == 0 || i+1 == num_inputs) {
             printf("%5d/%d\r", i+1, num_inputs);
             fflush(stdout);
-        }
+        //}
 
         // Write input to host memory. Will be copied to buffer in enqueue.
         octokernels[0]->set_input_mem(x_test[i]);

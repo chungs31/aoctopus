@@ -17,6 +17,7 @@
 
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
+#include "flags.h"
 
 int buffer_mapper(int n_args, int for_input_idx);
 
