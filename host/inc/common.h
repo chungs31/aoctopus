@@ -34,6 +34,8 @@ struct OctoCfg {
 };
 
 extern OctoCfg LeNet5;
+extern OctoCfg LeNet5_Reuse;
+
 extern OctoCfg MobileNetV2;
 extern OctoCfg SqueezeNet;
 

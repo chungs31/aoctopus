@@ -1,0 +1,145 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+BUF_TYPE	inc/layer.h	/^enum BUF_TYPE {$/;"	g
+COMMON_H	inc/common.h	9;"	d
+CONCURRENT_EXECUTION	inc/flags.h	10;"	d
+Executor	inc/runtime.h	/^    Executor(int n_i, int o_d) : num_inputs(n_i), output_dim(o_d) {};$/;"	f	class:Executor
+Executor	inc/runtime.h	/^class Executor {$/;"	c
+IMPORTER_H	inc/importer.h	11;"	d
+ImageNet	inc/networks.h	/^namespace ImageNet {$/;"	n
+ImageNet	src/networks.cpp	/^namespace ImageNet {$/;"	n	file:
+Importer	inc/importer.h	/^    Importer() {};$/;"	f	class:Importer
+Importer	inc/importer.h	/^    Importer(int num, int dim, std::string f_i, std::string f_o) : num_inputs(num), input_dim(dim), f_input(f_i), f_ref_output(f_o) {};$/;"	f	class:Importer
+Importer	inc/importer.h	/^class Importer {$/;"	c
+LAYER_H	inc/layer.h	2;"	d
+Layer	inc/layer.h	/^struct Layer {$/;"	s
+LeNet5	inc/networks.h	/^namespace LeNet5 {$/;"	n
+LeNet5	src/networks.cpp	/^namespace LeNet5 {$/;"	n	file:
+NETWORKS_H	inc/networks.h	4;"	d
+OCL_HELPER_H	inc/ocl_helper.h	10;"	d
+OCTOKERNEL_H	inc/octokernel.h	12;"	d
+OctoCfg	inc/common.h	/^struct OctoCfg {$/;"	s	namespace:config
+Octokernel	inc/octokernel.h	/^class Octokernel {$/;"	c
+Octokernel	src/octokernel.cpp	/^Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int _output_idx, int _input_idx) : $/;"	f	class:Octokernel
+RUNTIME_H	inc/runtime.h	10;"	d
+TEST_PCIE_BANDWIDTH_H	src/utility/test_pcie_bandwidth.h	10;"	d
+TEST_SET_SIZE	src/main.cpp	/^int TEST_SET_SIZE = 10000;$/;"	v
+buf_lens	inc/octokernel.h	/^    aocl_utils::scoped_array<size_t> buf_lens;$/;"	m	class:Octokernel
+buf_mflags	inc/octokernel.h	/^    std::vector<cl_mem_flags> buf_mflags;$/;"	m	class:Octokernel
+buf_sizes	inc/layer.h	/^    std::vector<size_t> buf_sizes; \/\/ Num of elements, i.e., NOT in bytes$/;"	m	struct:Layer
+buf_type	inc/layer.h	/^    std::vector<cl_mem_flags> buf_type;  $/;"	m	struct:Layer
+buffer_mapper	src/octokernel.cpp	/^int buffer_mapper(int n_args, int for_input_idx) {$/;"	f
+bufs	inc/octokernel.h	/^    aocl_utils::scoped_array<cl_mem> bufs;$/;"	m	class:Octokernel
+bufsizes	src/main.cpp	/^std::vector<std::vector<size_t> > bufsizes; \/\/ buffer sizes$/;"	v
+bufsizes_parser	src/importer.cpp	/^void bufsizes_parser(const char *filename, vector<vector<size_t> > &weights) {$/;"	f
+cfg_network	inc/common.h	/^    Layer *cfg_network;$/;"	m	struct:config::OctoCfg
+cleanup	src/ocl_helper.cpp	/^void cleanup() {$/;"	f
+cleanup	src/utility/test_pcie_bandwidth.cpp	/^void cleanup() {$/;"	f
+config	inc/common.h	/^namespace config {$/;"	n
+config	src/common.cpp	/^namespace config {$/;"	n	file:
+context	inc/ocl_helper.h	/^  cl_context context = NULL;$/;"	m	struct:ocl_info
+context	src/utility/test_pcie_bandwidth.cpp	/^cl_context context = NULL;$/;"	v
+copy_output_from_to	inc/octokernel.h	/^    void copy_output_from_to(aocl_utils::scoped_aligned_ptr<float> &out) {$/;"	f	class:Octokernel
+copy_weights_to_bufs	src/octokernel.cpp	/^void Octokernel::copy_weights_to_bufs() {$/;"	f	class:Octokernel
+dbg_dump_output	src/octokernel.cpp	/^void Octokernel::dbg_dump_output() {$/;"	f	class:Octokernel
+device	inc/ocl_helper.h	/^  aocl_utils::scoped_array<cl_device_id> device;$/;"	m	struct:ocl_info
+device	inc/octokernel.h	/^    cl_device_id device;$/;"	m	class:Octokernel
+device	src/utility/test_pcie_bandwidth.cpp	/^scoped_array<cl_device_id> device; \/\/ num_devices elements$/;"	v
+enqueue_kernel	src/octokernel.cpp	/^void Octokernel::enqueue_kernel() {$/;"	f	class:Octokernel
+enqueue_kernel	src/octokernel.cpp	/^void Octokernel::enqueue_kernel(int init) {$/;"	f	class:Octokernel
+enqueue_kernel_reuse	src/octokernel.cpp	/^void Octokernel::enqueue_kernel_reuse() {$/;"	f	class:Octokernel
+enqueue_kernel_reuse	src/octokernel.cpp	/^void Octokernel::enqueue_kernel_reuse(int init) {$/;"	f	class:Octokernel
+executor	inc/common.h	/^    Executor executor;$/;"	m	struct:config::OctoCfg
+f_bufsizes	inc/common.h	/^    std::string f_bufsizes;$/;"	m	struct:config::OctoCfg
+f_input	inc/importer.h	/^    std::string f_input;$/;"	m	class:Importer
+f_ref_output	inc/importer.h	/^    std::string f_ref_output;$/;"	m	class:Importer
+f_weight	inc/common.h	/^    std::string f_weight;$/;"	m	struct:config::OctoCfg
+func_name	inc/layer.h	/^    const char *func_name;$/;"	m	struct:Layer
+generate_random_input	src/importer.cpp	/^void Importer::generate_random_input(int _num_inputs, scoped_array<scoped_aligned_ptr<float> > &x_test) {$/;"	f	class:Importer
+get_buf_size	inc/octokernel.h	/^    size_t get_buf_size(int idx) const { return buf_lens[idx]; }; $/;"	f	class:Octokernel
+get_input_idx	inc/octokernel.h	/^    int get_input_idx() const { return input_idx; };$/;"	f	class:Octokernel
+get_n_bufs	inc/octokernel.h	/^    int get_n_bufs() const { return n_bufs; };$/;"	f	class:Octokernel
+get_output_idx	inc/octokernel.h	/^    int get_output_idx() const { return output_idx; };$/;"	f	class:Octokernel
+get_output_mem	inc/octokernel.h	/^    aocl_utils::scoped_aligned_ptr<float> &get_output_mem() {$/;"	f	class:Octokernel
+host_mems	inc/octokernel.h	/^    aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float> > host_mems;$/;"	m	class:Octokernel
+id	inc/octokernel.h	/^    int id;$/;"	m	class:Octokernel
+import_input_data	src/importer.cpp	/^void Importer::import_input_data($/;"	f	class:Importer
+import_input_dataset	src/importer.cpp	/^static void import_input_dataset($/;"	f	file:
+importer	inc/common.h	/^    Importer importer;$/;"	m	struct:config::OctoCfg
+init_opencl	src/main.cpp	/^bool init_opencl() {$/;"	f
+init_opencl	src/utility/test_pcie_bandwidth.cpp	/^bool init_opencl() {$/;"	f
+init_opencl_internals	src/ocl_helper.cpp	/^bool init_opencl_internals() {$/;"	f
+init_problem	src/main.cpp	/^void init_problem() {$/;"	f
+input_dim	inc/importer.h	/^    int input_dim;$/;"	m	class:Importer
+input_idx	inc/octokernel.h	/^    int input_idx;$/;"	m	class:Octokernel
+input_layer_idx	inc/layer.h	/^    int input_layer_idx;$/;"	m	struct:Layer
+inputs_copied	inc/octokernel.h	/^    bool inputs_copied = false;$/;"	m	class:Octokernel
+is_input_layer	inc/octokernel.h	/^    bool is_input_layer = false;$/;"	m	class:Octokernel
+is_input_or_output_layer	inc/octokernel.h	/^    bool is_input_or_output_layer() const{ return ( is_input_layer || is_output_layer ); };$/;"	f	class:Octokernel
+is_output_layer	inc/octokernel.h	/^    bool is_output_layer = false;$/;"	m	class:Octokernel
+kernel	inc/octokernel.h	/^    cl_kernel kernel;$/;"	m	class:Octokernel
+kernel_name	inc/octokernel.h	/^    std::string kernel_name;$/;"	m	class:Octokernel
+kernel_time	inc/octokernel.h	/^    cl_ulong kernel_time = 0;$/;"	m	class:Octokernel
+kernels	src/ocl_helper.cpp	/^cl_kernel kernels[max_kernels_supported];$/;"	v
+load_buf	src/octokernel.cpp	/^void Octokernel::load_buf(int buf_idx, std::vector<float> &in) {$/;"	f	class:Octokernel
+main	src/main.cpp	/^int main(int argc, char **argv) {$/;"	f
+main	src/utility/test_pcie_bandwidth.cpp	/^int main() {$/;"	f
+max_kernels_supported	inc/ocl_helper.h	/^const cl_uint max_kernels_supported = 128;$/;"	v
+n_bufs	inc/layer.h	/^    int n_bufs;$/;"	m	struct:Layer
+n_bufs	inc/octokernel.h	/^    int n_bufs;$/;"	m	class:Octokernel
+num_copied	inc/octokernel.h	/^    static int num_copied;$/;"	m	class:Octokernel
+num_copied	src/octokernel.cpp	/^int Octokernel::num_copied = 0;$/;"	m	class:Octokernel	file:
+num_devices	inc/ocl_helper.h	/^  unsigned num_devices = 0;$/;"	m	struct:ocl_info
+num_devices	src/utility/test_pcie_bandwidth.cpp	/^unsigned num_devices = 0;$/;"	v
+num_inputs	inc/importer.h	/^    int num_inputs;$/;"	m	class:Importer
+num_inputs	inc/runtime.h	/^    int num_inputs;$/;"	m	class:Executor
+num_kernels	inc/octokernel.h	/^    static int num_kernels; $/;"	m	class:Octokernel
+num_kernels	src/ocl_helper.cpp	/^int num_kernels;$/;"	v
+num_kernels	src/octokernel.cpp	/^int Octokernel::num_kernels = 0;$/;"	m	class:Octokernel	file:
+num_ready	inc/octokernel.h	/^    volatile static int num_ready;$/;"	m	class:Octokernel
+num_ready	src/octokernel.cpp	/^volatile int Octokernel::num_ready = 0;$/;"	m	class:Octokernel	file:
+ocl_info	inc/ocl_helper.h	/^struct ocl_info {$/;"	s
+octocfg	src/common.cpp	/^OctoCfg *octocfg = &LeNet5;$/;"	m	namespace:config	file:
+octokernels	src/main.cpp	/^std::vector<Octokernel*> octokernels;$/;"	v
+output_dim	inc/runtime.h	/^    int output_dim;$/;"	m	class:Executor
+output_idx	inc/octokernel.h	/^    int output_idx;$/;"	m	class:Octokernel
+output_layer_idx	inc/layer.h	/^    int output_layer_idx;$/;"	m	struct:Layer
+pcie_bandwidth_test	src/utility/test_pcie_bandwidth.cpp	/^void pcie_bandwidth_test() {$/;"	f
+platform	inc/ocl_helper.h	/^  cl_platform_id platform = NULL;$/;"	m	struct:ocl_info
+predict	src/runtime.cpp	/^void Executor::predict(const scoped_array<scoped_aligned_ptr<float>> &d_y, scoped_array<int> &predictions) {$/;"	f	class:Executor
+profiler_output	src/ocl_helper.cpp	/^void profiler_output() {$/;"	f
+program	inc/ocl_helper.h	/^  cl_program program = NULL;$/;"	m	struct:ocl_info
+program	inc/octokernel.h	/^    cl_program program;$/;"	m	class:Octokernel
+q	inc/octokernel.h	/^    cl_command_queue q = NULL;$/;"	m	class:Octokernel
+q	inc/octokernel.h	/^    static cl_command_queue q;$/;"	m	class:Octokernel
+r	inc/layer.h	/^    r = CL_MEM_READ_ONLY,$/;"	e	enum:BUF_TYPE
+rand_float	src/importer.cpp	/^static float rand_float() {$/;"	f	file:
+rand_float	src/utility/test_pcie_bandwidth.cpp	/^float rand_float() {$/;"	f
+read_time	src/octokernel.cpp	/^cl_ulong write_time = 0, read_time = 0;$/;"	v
+run	src/main.cpp	/^void run() {$/;"	f
+run	src/runtime.cpp	/^void Executor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) {$/;"	f	class:Executor
+rw	inc/layer.h	/^    rw = CL_MEM_READ_WRITE,$/;"	e	enum:BUF_TYPE
+set_as_input_layer	inc/octokernel.h	/^    void set_as_input_layer() { is_input_layer = true; };$/;"	f	class:Octokernel
+set_as_output_layer	inc/octokernel.h	/^    void set_as_output_layer() { is_output_layer = true; };$/;"	f	class:Octokernel
+set_buffer_from_prev	src/octokernel.cpp	/^void Octokernel::set_buffer_from_prev(const Octokernel *prev) {$/;"	f	class:Octokernel
+set_input_mem	inc/octokernel.h	/^    void set_input_mem(aocl_utils::scoped_aligned_ptr<float> &in) {$/;"	f	class:Octokernel
+set_input_mem	inc/octokernel.h	/^    void set_input_mem(std::vector<float> &in) {$/;"	f	class:Octokernel
+use_fast_emulator	src/ocl_helper.cpp	/^bool use_fast_emulator = false;$/;"	v
+verify	src/runtime.cpp	/^int Executor::verify(const scoped_array<int> &y, const scoped_array<int> &y_ref) {$/;"	f	class:Executor
+w	inc/layer.h	/^    w = CL_MEM_WRITE_ONLY$/;"	e	enum:BUF_TYPE
+wait_for_write_queue	src/octokernel.cpp	/^void Octokernel::wait_for_write_queue() {$/;"	f	class:Octokernel
+wall_clock_time	src/main.cpp	/^double wall_clock_time;$/;"	v
+weight_parser	src/importer.cpp	/^void weight_parser(const char *filename, vector<vector<float> > &weights) {$/;"	f
+weights	src/main.cpp	/^std::vector<std::vector<float> > weights; \/\/ imported weights from Keras$/;"	v
+weights_copied	inc/octokernel.h	/^    bool weights_copied = false;$/;"	m	class:Octokernel
+write_queue	inc/octokernel.h	/^    static cl_command_queue write_queue;$/;"	m	class:Octokernel
+write_queue	src/octokernel.cpp	/^cl_command_queue Octokernel::write_queue = NULL;$/;"	m	class:Octokernel	file:
+write_time	src/octokernel.cpp	/^cl_ulong write_time = 0, read_time = 0;$/;"	v
+x_test	src/main.cpp	/^scoped_array<scoped_aligned_ptr<float> > x_test;$/;"	v
+y_test	src/main.cpp	/^scoped_array<int> y_test;$/;"	v
+zero_buf	inc/octokernel.h	/^    void zero_buf(int buf_idx) {$/;"	f	class:Octokernel
+~Octokernel	src/octokernel.cpp	/^Octokernel::~Octokernel() {$/;"	f	class:Octokernel

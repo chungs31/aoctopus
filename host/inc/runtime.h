@@ -19,6 +19,11 @@ extern std::vector<std::vector<size_t> > bufsizes; // buffer sizes
 extern aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float> > x_test;
 extern aocl_utils::scoped_array<int> y_test;
 
+enum class MNISTExecutorType {
+    BASE,
+    REUSE
+};
+
 class Executor {
 public:
     int num_inputs;
@@ -31,12 +36,16 @@ public:
     int verify(const aocl_utils::scoped_array<int> &y, const aocl_utils::scoped_array<int> &y_ref);
 };
 
-/*
 class MNISTExecutor : public Executor {
+private:
+    MNISTExecutorType type;
 public:
-    virtual void run() override;
+    MNISTExecutor(int n_i, int o_d, MNISTExecutorType t) : Executor(n_i, o_d), type(t) {};
+    virtual void run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) override;
 };
 
+
+/*
 class MobileNetExecutor : public Executor {
 public:
     virtual void run() override;
