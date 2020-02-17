@@ -9,7 +9,5 @@ jobs:
     
     steps:
     - uses: actions/checkout@v2
-    - name: getdeps
-      run: source /home/chungs31/tvm-dev-19.1.sh
     - name: make
-      run: make
+      run: source /home/chungs31/tvm-dev-19.1.sh && make
