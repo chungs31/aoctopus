@@ -96,6 +96,8 @@ PBT_SRCS := $(wildcard host/src/utility/*.cpp common/src/AOCLUtils/*.cpp)
 # Objects
 OBJECT_DIR := obj
 OBJS := $(SRCS:%.cpp=$(OBJECT_DIR)/%.o)
+DEP = $(OBJS:%.o=%.d)
+
 
 # Make it all!
 all : $(TARGET_DIR)/$(TARGET) 
@@ -108,11 +110,11 @@ $(TARGET_DIR)/$(TARGET) : $(OBJECT_DIR) $(OBJS)
 			$(foreach D,$(LIB_DIRS),-L$D) \
 			$(foreach L,$(LIBS),-l$L) \
 			-o $@ $(OBJS)
-	
-#$(TARGET_DIR)/$(TARGET)
+
+-include $(DEP)
 
 $(OBJECT_DIR)/%.o: %.cpp
-	$(ECHO)$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(EXTRACXXFLAGS) -fPIC $(foreach D,$(INC_DIRS),-I$D) \
+	$(ECHO)$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(EXTRACXXFLAGS) -MMD -fPIC $(foreach D,$(INC_DIRS),-I$D) \
 			$(AOCL_COMPILE_CONFIG) \
 			-c -o $@ $<
 
