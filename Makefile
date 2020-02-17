@@ -104,7 +104,7 @@ all : $(TARGET_DIR)/$(TARGET)
 #$(TARGET_DIR)/$(PCIE_BW_TEST_TARGET)
 
 # Host executable target.
-$(TARGET_DIR)/$(TARGET) : $(OBJECT_DIR) $(OBJS)
+$(TARGET_DIR)/$(TARGET) : $(TARGET_DIR) $(OBJECT_DIR) $(OBJS)
 	$(ECHO)$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(EXTRACXXFLAGS) -fPIC $(foreach D,$(INC_DIRS),-I$D) \
 			$(AOCL_COMPILE_CONFIG) $(AOCL_LINK_CONFIG) \
 			$(foreach D,$(LIB_DIRS),-L$D) \
