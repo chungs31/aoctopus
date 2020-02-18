@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     }
 
     // Initialize OpenCL.
-    if(!init_opencl()) {
+    if(!init_opencl(user_cfg)) {
         return -1;
     }
 
@@ -89,10 +89,10 @@ int main(int argc, char **argv) {
 
 /////// HELPER FUNCTIONS ///////
 // Initializes the OpenCL objects.
-bool init_opencl() {
+bool init_opencl(const std::string f_bitstream) {
     printf("Initializing OpenCL\n");
 
-    cl_int status = init_opencl_internals();
+    cl_int status = init_opencl_internals(f_bitstream);
     checkError(status, "Failed to initialize OpenCL internals");
 
     // Build the kernels now from the oclinfo.program

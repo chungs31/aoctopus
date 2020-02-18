@@ -36,8 +36,8 @@ extern cl_kernel kernels[max_kernels_supported];
 extern double wall_clock_time;
 
 // Function prototypes
-bool init_opencl();
-bool init_opencl_internals();
+bool init_opencl(const std::string);
+bool init_opencl_internals(const std::string);
 
 void init_problem();
 void run();

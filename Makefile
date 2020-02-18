@@ -65,6 +65,11 @@ CXXFLAGS += -D_FORTIFY_SOURCE=2
 CXXFLAGS += -Wformat -Wformat-security
 CXXFLAGS += -fPIE
 
+# Concurrent Execution Macro
+ifeq ($(CE),1)
+CXXFLAGS += -DCONCURRENT_EXECUTION
+endif
+
 # Enable C++11
 CXXFLAGS += -std=c++11
 
