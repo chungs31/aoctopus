@@ -42,7 +42,7 @@ bool init_opencl_internals(const std::string f_bitstream) {
   // Create the oclinfo.program for all oclinfo.device. Use the first oclinfo.device as the
   // representative oclinfo.device (assuming all oclinfo.device are of the same type).
   std::string path_home(getenv("HOME"));
-  std::string binary_file = getBoardBinaryFile((path_home + "/bitstreams/" + f_bitstream).c_str(), oclinfo.device[0]);
+  std::string binary_file = getBoardBinaryFile((path_home + "/aoctopus_static/bitstreams/" + f_bitstream).c_str(), oclinfo.device[0]);
   printf("Using AOCX: %s\n", binary_file.c_str());
   oclinfo.program = createProgramFromBinary(oclinfo.context, binary_file.c_str(), oclinfo.device, oclinfo.num_devices);
 
