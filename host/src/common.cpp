@@ -38,4 +38,25 @@ OctoCfg SqueezeNet {
     .executor = Executor(1, 1000)
 };
 
+cfgs CfgList = {
+    {"lenet5_baseline", LeNet5},
+    {"lenet5_reuse", LeNet5_Reuse},
+    {"im_mobilenetv2", MobileNetV2},
+    {"im_squeezenet", SqueezeNet}
+};
+
+void printcfgs() {
+    printf("Available configurations: \n");
+    for (auto &i : CfgList) {
+        printf("%s\n", i.first.c_str());
+    }
+}
+
+OctoCfg* select_config(std::string cfgname) {
+    for (auto &i : CfgList) {
+        if (i.first == cfgname) return &(i.second);
+    }
+    return NULL;
+}
+
 }

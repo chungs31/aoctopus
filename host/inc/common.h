@@ -12,9 +12,11 @@
 #include "importer.h"
 #include "runtime.h"
 #include <string>
+#include <utility>
+#include <vector>
 
+/* Forward declaration */
 class Layer;
-
 
 /* External shared variables
  */
@@ -33,6 +35,10 @@ struct OctoCfg {
     Executor executor;
 };
 
+typedef std::pair<std::string, OctoCfg> cfgpair;
+typedef std::vector<cfgpair> cfgs;
+extern cfgs CfgList;
+
 extern OctoCfg LeNet5;
 extern OctoCfg LeNet5_Reuse;
 
@@ -40,6 +46,9 @@ extern OctoCfg MobileNetV2;
 extern OctoCfg SqueezeNet;
 
 extern OctoCfg *octocfg;
+
+void printcfgs();
+OctoCfg* select_config(std::string cfgname);
 
 }
 

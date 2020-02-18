@@ -32,6 +32,18 @@ int TEST_SET_SIZE = 10000;
 int main(int argc, char **argv) {
     Options options(argc, argv);
 
+    config::printcfgs();
+    std::string user_cfg;
+    if(options.has("c")) {
+        user_cfg = options.get<std::string>("c");
+        config::octocfg = config::select_config(user_cfg);
+    }
+    if (!config::octocfg) {
+        printf("[ERROR] Invalid configuration selected\n");
+        assert(0);
+    }
+    printf("[INFO] selected config %s\n", user_cfg.c_str());
+
     // Import weights from Keras
     weight_parser(config::octocfg->f_weight.c_str(), weights);
     printf("Weights imported: size %ld\n", weights.size());
@@ -43,6 +55,7 @@ int main(int argc, char **argv) {
     if(options.has("fast-emulator")) {
         use_fast_emulator = options.get<bool>("fast-emulator");
     }
+
 
     if(options.has("n")) {
         TEST_SET_SIZE = options.get<int>("n");
