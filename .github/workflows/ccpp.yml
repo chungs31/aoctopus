@@ -3,11 +3,29 @@ name: C/C++ CI
 on: [push]
 
 jobs:
-  build:
-
+  build_and_test_serial:
     runs-on: self-hosted
-    
     steps:
     - uses: actions/checkout@v2
     - name: make
-      run: source /home/chungs31/tvm-dev-19.1.sh && make
+      run: | 
+          source /home/chungs31/tvm-dev-19.1.sh 
+          make -j10
+    - name: lenet5
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_reuse
+  build_and_test_concurrent:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v2
+    - name: make
+      run: | 
+          source /home/chungs31/tvm-dev-19.1.sh 
+          make -j10 CE=1
+    - name: lenet5
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_reuse
