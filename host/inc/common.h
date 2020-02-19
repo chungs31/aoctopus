@@ -32,7 +32,7 @@ struct OctoCfg {
     std::string f_bufsizes;
     Layer *cfg_network;
     Importer importer;
-    Executor executor;
+    Executor *executor;
 };
 
 typedef std::pair<std::string, OctoCfg> cfgpair;
@@ -40,10 +40,13 @@ typedef std::vector<cfgpair> cfgs;
 extern cfgs CfgList;
 
 extern OctoCfg LeNet5;
+extern OctoCfg LeNet5_Unrolled;
+extern OctoCfg LeNet5_Channels;
+extern OctoCfg LeNet5_Autorun;
 extern OctoCfg LeNet5_Reuse;
 
-extern OctoCfg MobileNetV2;
-extern OctoCfg SqueezeNet;
+//extern OctoCfg MobileNetV2;
+//extern OctoCfg SqueezeNet;
 
 extern OctoCfg *octocfg;
 

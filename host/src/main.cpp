@@ -209,7 +209,7 @@ void init_problem() {
 
 void run() {
     cl_int status;
-    config::octocfg->executor.num_inputs = TEST_SET_SIZE;                     // Set number of inputs
+    config::octocfg->executor->num_inputs = TEST_SET_SIZE;                     // Set number of inputs
 
     Octokernel *last = octokernels[num_kernels- 1];
     const double start_time = getCurrentTimestamp();
@@ -278,7 +278,7 @@ void run() {
     //read_thread.join();
     printf("\n");
     */
-    config::octocfg->executor.run(d_y);
+    config::octocfg->executor->run(d_y);
 
     // Wait for all devices to finish.
     const double end_time = getCurrentTimestamp();
@@ -289,7 +289,7 @@ void run() {
     scoped_array<int> predictions(TEST_SET_SIZE);
 
     // Verify
-    config::octocfg->executor.predict(d_y, predictions);                      // Calculate predictions
-    int incorrect = config::octocfg->executor.verify(predictions, y_test);    // Compare predictions to reference
+    config::octocfg->executor->predict(d_y, predictions);                      // Calculate predictions
+    int incorrect = config::octocfg->executor->verify(predictions, y_test);    // Compare predictions to reference
     printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
 }

@@ -16,7 +16,31 @@ OctoCfg LeNet5 {
     .f_bufsizes="",
     .cfg_network = LeNet5::base_network,
     .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
-    .executor = MNISTExecutor(10000, 10, MNISTExecutorType::BASE)
+    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::BASE)
+};
+
+OctoCfg LeNet5_Unrolled {
+    .f_weight=static_path("mnist_weight_dump.txt"),
+    .f_bufsizes="",
+    .cfg_network = LeNet5::base_network,
+    .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
+    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::BASE)
+};
+
+OctoCfg LeNet5_Channels {
+    .f_weight=static_path("mnist_weight_dump.txt"),
+    .f_bufsizes="",
+    .cfg_network = LeNet5::channels_network,
+    .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
+    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::BASE)
+};
+
+OctoCfg LeNet5_Autorun {
+    .f_weight=static_path("mnist_weight_dump.txt"),
+    .f_bufsizes="",
+    .cfg_network = LeNet5::autorun_network,
+    .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
+    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::BASE)
 };
 
 OctoCfg LeNet5_Reuse {
@@ -24,9 +48,10 @@ OctoCfg LeNet5_Reuse {
     .f_bufsizes="",
     .cfg_network = LeNet5::reuse_fused_network,
     .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
-    .executor = MNISTExecutor(10000, 10, MNISTExecutorType::REUSE)
+    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::REUSE)
 };
 
+/*
 OctoCfg MobileNetV2 {
     .f_weight=static_path("inet_mnet_params.txt"),
     .f_bufsizes=static_path("inet_mnet_channels_bufsizes.txt"),
@@ -42,12 +67,16 @@ OctoCfg SqueezeNet {
     .importer = Importer(1, 224*224*3, "../data/cat244244.db", ""),
     .executor = Executor(1, 1000)
 };
+*/
 
 cfgs CfgList = {
     {"lenet5_baseline", LeNet5},
-    {"lenet5_reuse", LeNet5_Reuse},
-    {"im_mobilenetv2", MobileNetV2},
-    {"im_squeezenet", SqueezeNet}
+    {"lenet5_unrolled", LeNet5_Unrolled},
+    {"lenet5_channels", LeNet5_Channels},
+    {"lenet5_autorun", LeNet5_Autorun},
+    {"lenet5_reuse", LeNet5_Reuse}
+    //{"im_mobilenetv2", MobileNetV2},
+    //{"im_squeezenet", SqueezeNet}
 };
 
 void printcfgs() {

@@ -11,7 +11,27 @@ jobs:
       run: | 
           source /home/chungs31/tvm-dev-19.1.sh 
           make -j10
-    - name: lenet5
+    - name: lenet5_baseline
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_baseline
+    - name: lenet5_unrolled
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_unrolled
+    - name: lenet5_channels
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_channels
+    - name: lenet5_autorun
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_autorun
+    - name: lenet5_reuse
       run: |
           source /home/chungs31/tvm-dev-19.1.sh
           cd bin
@@ -24,7 +44,27 @@ jobs:
       run: | 
           source /home/chungs31/tvm-dev-19.1.sh 
           make -j10 CE=1
-    - name: lenet5
+    - name: lenet5_baseline
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_baseline
+    - name: lenet5_unrolled
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_unrolled
+    - name: lenet5_channels
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_channels
+    - name: lenet5_autorun
+      run: |
+          source /home/chungs31/tvm-dev-19.1.sh
+          cd bin
+          ./host -c=lenet5_autorun
+    - name: lenet5_reuse
       run: |
           source /home/chungs31/tvm-dev-19.1.sh
           cd bin
