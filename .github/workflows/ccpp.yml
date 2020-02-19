@@ -44,16 +44,6 @@ jobs:
       run: | 
           source /home/chungs31/tvm-dev-19.1.sh 
           make -j10 CE=1
-    - name: lenet5_baseline
-      run: |
-          source /home/chungs31/tvm-dev-19.1.sh
-          cd bin
-          ./host -c=lenet5_baseline
-    - name: lenet5_unrolled
-      run: |
-          source /home/chungs31/tvm-dev-19.1.sh
-          cd bin
-          ./host -c=lenet5_unrolled
     - name: lenet5_channels
       run: |
           source /home/chungs31/tvm-dev-19.1.sh
