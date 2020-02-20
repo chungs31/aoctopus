@@ -157,6 +157,11 @@ void init_problem() {
 
     // Map weights to layers. Copy to read-only buffers that are not the input buffers.
     // Works for LeNet5...
+    //
+    int check = config::octocfg->executor->map_weights();
+    assert(check);
+    return; 
+
     int weight_idx = 0;
     for (int i = 0; i < num_kernels; i++) {
         Octokernel *kern = octokernels[i];

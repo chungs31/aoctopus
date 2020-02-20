@@ -104,6 +104,24 @@ int Executor::verify(const scoped_array<int> &y, const scoped_array<int> &y_ref)
     return incorrect;
 }
 
+int MNISTExecutor::map_weights() {
+    int weight_idx = 0;
+    for (int i = 0; i < num_kernels; i++) {
+        Octokernel *kern = octokernels[i];
+        int num_args = kern->get_n_bufs();
+        if (num_args != -1) { // Skip layers without arguments.
+            for (int j = 0; j < num_args; j++) {
+                // If the buffer is labelled read-only and isn't an input layer (first layer),
+                // then the layer contains parameters (weight/bias). Map to it.
+                if (kern->buf_mflags[j] == CL_MEM_READ_ONLY && j != kern->get_input_idx()) {
+                    printf("[DEBUG] LAYER %d: weight idx %d copied to HOSTMEM %d\n", i, weight_idx, j);
+                    kern->load_buf(j, weights[weight_idx++]);
+                }
+            }
+        }
+    }
+    return (weight_idx == weights.size());
+}
 
 void MNISTExecutor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) {
     Octokernel *last = octokernels[num_kernels- 1];
