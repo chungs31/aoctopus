@@ -16,7 +16,7 @@ OctoCfg LeNet5 {
     .f_bufsizes="",
     .cfg_network = LeNet5::base_network,
     .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
-    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::BASE)
+    .executor = new MNISTExecutor(10000, 10, 0.98, MNISTExecutorType::BASE)
 };
 
 OctoCfg LeNet5_Unrolled {
@@ -24,7 +24,7 @@ OctoCfg LeNet5_Unrolled {
     .f_bufsizes="",
     .cfg_network = LeNet5::base_network,
     .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
-    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::BASE)
+    .executor = new MNISTExecutor(10000, 10, 0.98, MNISTExecutorType::BASE)
 };
 
 OctoCfg LeNet5_Channels {
@@ -32,7 +32,7 @@ OctoCfg LeNet5_Channels {
     .f_bufsizes="",
     .cfg_network = LeNet5::channels_network,
     .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
-    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::BASE)
+    .executor = new MNISTExecutor(10000, 10, 0.98, MNISTExecutorType::BASE)
 };
 
 OctoCfg LeNet5_Autorun {
@@ -40,7 +40,7 @@ OctoCfg LeNet5_Autorun {
     .f_bufsizes="",
     .cfg_network = LeNet5::autorun_network,
     .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
-    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::BASE)
+    .executor = new MNISTExecutor(10000, 10, 0.98, MNISTExecutorType::BASE)
 };
 
 OctoCfg LeNet5_Reuse {
@@ -48,7 +48,7 @@ OctoCfg LeNet5_Reuse {
     .f_bufsizes="",
     .cfg_network = LeNet5::reuse_fused_network,
     .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
-    .executor = new MNISTExecutor(10000, 10, MNISTExecutorType::REUSE)
+    .executor = new MNISTExecutor(10000, 10, 0.98, MNISTExecutorType::REUSE)
 };
 
 /*

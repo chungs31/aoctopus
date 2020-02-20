@@ -40,7 +40,7 @@ bool init_opencl(const std::string);
 bool init_opencl_internals(const std::string);
 
 void init_problem();
-void run();
+bool run();
 void cleanup();
 void profiler_output();
 

@@ -104,6 +104,12 @@ int Executor::verify(const scoped_array<int> &y, const scoped_array<int> &y_ref)
     return incorrect;
 }
 
+/* is the accuracy good enough? */
+bool Executor::pass(float accuracy) {
+    if (accuracy > pass_threshold) return true;
+    else return false;
+}
+
 int MNISTExecutor::map_weights() {
     int weight_idx = 0;
     for (int i = 0; i < num_kernels; i++) {

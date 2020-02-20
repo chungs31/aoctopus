@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
     init_problem();
 
     // Run the kernel.
-    run();
+    bool pass = run();
 
     // Free the resources allocated
     cleanup();
@@ -84,7 +84,8 @@ int main(int argc, char **argv) {
     // Print profiling times
     profiler_output();
 
-    return 0;
+    if (pass == true) return 0;
+    return -1;
 }
 
 /////// HELPER FUNCTIONS ///////
@@ -212,7 +213,7 @@ void init_problem() {
     assert(weight_idx == weights.size());
 }
 
-void run() {
+bool run() {
     cl_int status;
     config::octocfg->executor->num_inputs = TEST_SET_SIZE;                     // Set number of inputs
 
@@ -251,6 +252,12 @@ void run() {
     // Verify
     config::octocfg->executor->predict(d_y, predictions);                      // Calculate predictions
     int incorrect = config::octocfg->executor->verify(predictions, y_test);    // Compare predictions to reference
-    printf("Accuracy: %f\n", ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE));
+    float accuracy = ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE);    
+    printf("[INFO] Accuracy: %f\n", accuracy);
+
+    // Is it above threshold
+    bool pass = config::octocfg->executor->pass(accuracy);
+    printf("*** VALIDATION %s\n", (pass ? ("PASSED") : ("FAILED")));
+    return pass;
 }
 
