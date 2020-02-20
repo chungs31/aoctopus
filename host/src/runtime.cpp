@@ -5,6 +5,49 @@
 
 using namespace aocl_utils;
 
+// The original run() function refactored from main. 
+// Keep for multithreading later.
+    //std::thread read_thread = std::thread(&Octokernel::copy_output_from_to_fcn, last, std::ref(d_y));
+    /*for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
+        if ((i+1) % 100 == 0 || i+1 == TEST_SET_SIZE) {
+            printf("%5d/%d\r", i+1, TEST_SET_SIZE);
+            fflush(stdout);
+        }
+
+        // Write input to host memory. Will be copied to buffer in enqueue.
+        octokernels[0]->set_input_mem(x_test[i]);
+
+        // Enqueue all kernels in order.
+        for (int k = 0; k < num_kernels; k++) {
+            //if (k == num_kernels - 1 && read_thread.joinable()) { // last iter
+            //    read_thread.join();
+            //
+            //}
+            if (k == 3) {
+                octokernels[k]->enqueue_kernel_reuse();
+            }
+            else if (k == 4) {
+                octokernels[k]->enqueue_kernel(0);
+            }
+            if (k == 2) {
+                octokernels[k]->enqueue_kernel_reuse();
+            }
+            else {
+                octokernels[k]->enqueue_kernel();//(0);
+            }
+            //octokernels[k]->dbg_dump_output();
+        }
+
+        // Copy output. Blocking call -- maybe multithread this later?
+        last->copy_output_from_to(d_y[i]);
+        //read_thread = std::thread(&Octokernel::copy_output_from_to, last, std::ref(d_y[i]));
+        //read_thread.detach();
+    }
+    //printf("%d copied, %d ready\n", last->num_copied, last->num_ready);
+    //read_thread.join();
+    printf("\n");
+    */
+
 /*
 void Executor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) {
     Octokernel *last = octokernels[num_kernels- 1];
