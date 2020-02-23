@@ -51,21 +51,29 @@ OctoCfg LeNet5_Reuse {
     .executor = new MNISTExecutor(10000, 10, 0.98, MNISTExecutorType::REUSE)
 };
 
-/*
 OctoCfg MobileNetV2 {
+    .f_weight=static_path("inet_mnet_params.txt"),
+    .f_bufsizes=static_path("inet_mnet_bufsizes.txt"),
+    .cfg_network = ImageNet::MobileNet,
+    .importer = Importer(1, 224*224*3, static_path("cat244244.db"), ""), 
+    .executor = new MobileNetExecutor(1, 1000, 0.0, MobileNetExecutorType::BASE)
+};
+
+OctoCfg MobileNetV2_Channels {
     .f_weight=static_path("inet_mnet_params.txt"),
     .f_bufsizes=static_path("inet_mnet_channels_bufsizes.txt"),
     .cfg_network = ImageNet::MobileNet_channels,
-    .importer = Importer(1, 224*224*3, "../data/cat244244.db", ""), 
-    .executor = Executor(1, 1000)
+    .importer = Importer(1, 224*224*3, static_path("cat244244.db"), ""), 
+    .executor = new MobileNetExecutor(1, 1000, 0.0, MobileNetExecutorType::CHANNELS)
 };
 
+/*
 OctoCfg SqueezeNet {
     .f_weight="../data/inet_sqnet_params.txt",
     .f_bufsizes="",
     .cfg_network = ImageNet::SqueezeNet,
     .importer = Importer(1, 224*224*3, "../data/cat244244.db", ""),
-    .executor = Executor(1, 1000)
+    .executor = new ImageNetExecutor(1, 1000)
 };
 */
 
@@ -74,8 +82,9 @@ cfgs CfgList = {
     {"lenet5_unrolled", LeNet5_Unrolled},
     {"lenet5_channels", LeNet5_Channels},
     {"lenet5_autorun", LeNet5_Autorun},
-    {"lenet5_reuse", LeNet5_Reuse}
-    //{"im_mobilenetv2", MobileNetV2},
+    {"lenet5_reuse", LeNet5_Reuse},
+    {"im_mnetv2_baseline", MobileNetV2},
+    {"im_mnetv2_channels", MobileNetV2_Channels}
     //{"im_squeezenet", SqueezeNet}
 };
 

@@ -45,8 +45,8 @@ extern OctoCfg LeNet5_Channels;
 extern OctoCfg LeNet5_Autorun;
 extern OctoCfg LeNet5_Reuse;
 
-//extern OctoCfg MobileNetV2;
-//extern OctoCfg SqueezeNet;
+extern OctoCfg MobileNetV2;
+extern OctoCfg SqueezeNet;
 
 extern OctoCfg *octocfg;
 

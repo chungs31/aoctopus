@@ -24,6 +24,11 @@ enum class MNISTExecutorType {
     REUSE
 };
 
+enum class MobileNetExecutorType {
+    BASE,
+    CHANNELS
+};
+
 class Executor {
 public:
     int num_inputs;
@@ -54,12 +59,15 @@ public:
 };
 
 
-/*
 class MobileNetExecutor : public Executor {
+private: 
+    MobileNetExecutorType type;
 public:
-    virtual void run() override;
+    MobileNetExecutor(int n_i, int o_d, float p_t, MobileNetExecutorType t) : Executor(n_i, o_d, p_t), type(t) {};
+    virtual ~MobileNetExecutor() {};
+    virtual int map_weights() override;
+    virtual void run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) override;
 };
-*/
 
 #endif /* RUNTIME_H */
 

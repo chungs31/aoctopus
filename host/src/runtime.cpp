@@ -110,6 +110,7 @@ bool Executor::pass(float accuracy) {
     else return false;
 }
 
+/* MNIST Executor overriding functions */
 int MNISTExecutor::map_weights() {
     int weight_idx = 0;
     for (int i = 0; i < num_kernels; i++) {
@@ -156,4 +157,58 @@ void MNISTExecutor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<
     printf("\n");
 }
 
+/* MobileNet Executor overriding functions */
+int MobileNetExecutor::map_weights() {
+    int weight_idx = 0;
+    for (int i = 0; i < num_kernels; i++) {
+        Octokernel *kern = octokernels[i];
+        int num_args = kern->get_n_bufs();
+
+        switch (type) {
+        case MobileNetExecutorType::CHANNELS:
+            if (!kern->is_input_or_output_layer()) {
+                for (int j = 0; j < num_args; j++) {
+                    kern->load_buf(j, weights[weight_idx++]);
+                }
+            }
+            break;
+        default: // BASE
+            if (num_args < 5) {
+                // Only kernels with 5 arguments have weights/biases.
+                // Don't load them.
+                continue;
+            }
+            else {
+                kern->load_buf(2, weights[weight_idx++]);
+                kern->load_buf(4, weights[weight_idx++]);
+                if (num_args > 5) {
+                  kern->load_buf(5, weights[weight_idx++]);
+                }
+            }
+            break;
+        }
+    }
+    return (weight_idx == weights.size());
+}
+
+void MobileNetExecutor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) {
+    Octokernel *last = octokernels[num_kernels- 1];
+    for (unsigned i = 0; i < num_inputs; ++i) {
+        printf("%5d/%d\r", i+1, num_inputs);
+        fflush(stdout);
+
+        // Write input to host memory. Will be copied to buffer in enqueue.
+        octokernels[0]->set_input_mem(x_test[i]);
+
+        // Enqueue all kernels in order.
+        for (int k = 0; k < num_kernels; k++) {
+            octokernels[k]->enqueue_kernel();
+            //octokernels[k]->dbg_dump_output();
+        }
+
+        // Copy output. Blocking call -- maybe multithread this later?
+        last->copy_output_from_to(d_y[i]);
+    }
+    printf("\n");
+}
 

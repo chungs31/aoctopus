@@ -32,16 +32,17 @@ int TEST_SET_SIZE = 10000;
 int main(int argc, char **argv) {
     Options options(argc, argv);
 
-    config::printcfgs();
     std::string user_cfg;
     if(options.has("c")) {
         user_cfg = options.get<std::string>("c");
         config::octocfg = config::select_config(user_cfg);
     }
-    if (!config::octocfg) {
-        printf("[ERROR] Invalid configuration selected\n");
-        assert(0);
+    else {
+        fprintf(stderr, "[ERROR] configuration unspecified\n");
+        config::printcfgs();
+        return -1;        
     }
+    assert(config::octocfg /* Invalid configuration selected */);
     printf("[INFO] selected config %s\n", user_cfg.c_str());
 
     // Import weights from Keras
@@ -56,13 +57,20 @@ int main(int argc, char **argv) {
         use_fast_emulator = options.get<bool>("fast-emulator");
     }
 
+    std::string bstream_path = "";
+    if(options.has("e")) {
+        putenv((char *)"CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1");
+        printf("[INFO] CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA set to 1\n");
+        bstream_path += "emul/";
+    }
 
     if(options.has("n")) {
         TEST_SET_SIZE = options.get<int>("n");
     }
 
     // Initialize OpenCL.
-    if(!init_opencl(user_cfg)) {
+    bstream_path += user_cfg;
+    if(!init_opencl(bstream_path)) {
         return -1;
     }
 
@@ -204,7 +212,6 @@ void init_problem() {
             }
         }
         */
-
 
         //}
     }
