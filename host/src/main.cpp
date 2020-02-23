@@ -154,70 +154,19 @@ bool init_opencl(const std::string f_bitstream) {
     return true;
 }
 
-// Initialize the data for the problem. Requires oclinfo.num_devices to be known.
+// Initialize the data for the problem. 
 void init_problem() {
     if(oclinfo.num_devices == 0) {
         checkError(-1, "No devices");
     }
 
-
+    // Get input data
     config::octocfg->importer.import_input_data(x_test, y_test);    /* for real data */
     //config::octocfg->importer->generate_random_input(10000, x_test); /* for random data */
 
-    // Map weights to layers. Copy to read-only buffers that are not the input buffers.
-    // Works for LeNet5...
-    //
+    // Map weights to layers.
     int check = config::octocfg->executor->map_weights();
     assert(check);
-    return; 
-
-    int weight_idx = 0;
-    for (int i = 0; i < num_kernels; i++) {
-        Octokernel *kern = octokernels[i];
-        int num_args = kern->get_n_bufs();
-        if (num_args != -1) { // Manual-ish configuration.
-            for (int j = 0; j < num_args; j++) {
-                if (kern->buf_mflags[j] == CL_MEM_READ_ONLY && j != kern->get_input_idx()) {
-                    printf("LAYER %d: weight idx %d copied to HOSTMEM %d\n", i, weight_idx, j);
-                    kern->load_buf(j, weights[weight_idx++]);
-                }
-            }
-        }
-
-        // MOBILENET
-
-        //else { */
-
-        // THIS IS THE DEFAULT MOBILENET CONFIGUROR
-        /*
-            if (num_args < 5) {
-                // Only kernels with 5 arguments have weights/biases.
-                // Don't load them.
-                continue;
-            }
-            else {
-                kern->load_buf(2, weights[weight_idx++]);
-                kern->load_buf(4, weights[weight_idx++]);
-                if (num_args > 5) {
-                  kern->load_buf(5, weights[weight_idx++]);
-                }
-            }
-        */
-        // MOBILENET CHANNELS CONFIGUROR
-
-        /*
-        if (!kern->is_input_or_output_layer()) {
-            for (int j = 0; j < num_args; j++) {
-                kern->load_buf(j, weights[weight_idx++]);
-            }
-        }
-        */
-
-        //}
-    }
-
-    // All weights should have been mapped.
-    assert(weight_idx == weights.size());
 }
 
 bool run() {
