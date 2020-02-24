@@ -55,7 +55,7 @@ OctoCfg MobileNetV2 {
     .f_weight=static_path("inet_mnet_params.txt"),
     .f_bufsizes=static_path("inet_mnet_bufsizes.txt"),
     .cfg_network = ImageNet::MobileNet,
-    .importer = Importer(1, 224*224*3, static_path("cat244244.db"), ""), 
+    .importer = Importer(1, 224*224*3, static_path("cat224224.db"), static_path("cat224224_y.db")), 
     .executor = new MobileNetExecutor(1, 1000, 0.0, MobileNetExecutorType::BASE)
 };
 
@@ -63,7 +63,7 @@ OctoCfg MobileNetV2_Channels {
     .f_weight=static_path("inet_mnet_params.txt"),
     .f_bufsizes=static_path("inet_mnet_channels_bufsizes.txt"),
     .cfg_network = ImageNet::MobileNet_channels,
-    .importer = Importer(1, 224*224*3, static_path("cat244244.db"), ""), 
+    .importer = Importer(1, 224*224*3, static_path("cat224224.db"), static_path("cat224224_y.db")), 
     .executor = new MobileNetExecutor(1, 1000, 0.0, MobileNetExecutorType::CHANNELS)
 };
 
