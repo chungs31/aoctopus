@@ -135,8 +135,8 @@ bool init_opencl(const std::string f_bitstream) {
                 oclinfo.device[i],
                 oclinfo.program,
                 config::octocfg->cfg_network[kernel].func_name,
-                // config::octocfg->cfg_network[kernel].n_bufs,
-                config::octocfg->cfg_network[kernel].buf_sizes,
+                //config::octocfg->cfg_network[kernel].buf_sizes,
+                (bufsizes.size() > 0) ? bufsizes[kernel] : config::octocfg->cfg_network[kernel].buf_sizes,
                 //bufsizes[kernel],
                 config::octocfg->cfg_network[kernel].buf_type,
                 config::octocfg->cfg_network[kernel].output_layer_idx,
@@ -180,8 +180,7 @@ bool run() {
     for (int k = 0; k < num_kernels; k++) {
         // MOBILENET
         //if (!octokernels[k]->is_input_or_output_layer())
-        //    octokernels[k]->copy_weights_to_bufs();
-        octokernels[k]->copy_weights_to_bufs();
+        octokernels[k]->copy_weights_to_bufs(config::octocfg->executor->use_positional_copy());
     }
     Octokernel::wait_for_write_queue();
     printf("Completed writing weights\n");

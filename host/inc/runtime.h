@@ -41,6 +41,7 @@ public:
     // Following functions are specific to network architecture.
     virtual int map_weights() = 0;
     virtual void run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) = 0;
+    virtual bool use_positional_copy() = 0;
 
     // Common functions for all executors.
     void predict(const aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y, aocl_utils::scoped_array<int> &predictions);
@@ -56,6 +57,7 @@ public:
     virtual ~MNISTExecutor() {};
     virtual int map_weights() override;
     virtual void run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) override;
+    virtual bool use_positional_copy() override;
 };
 
 
@@ -67,6 +69,7 @@ public:
     virtual ~MobileNetExecutor() {};
     virtual int map_weights() override;
     virtual void run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) override;
+    virtual bool use_positional_copy() override;
 };
 
 #endif /* RUNTIME_H */

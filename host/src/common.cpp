@@ -9,7 +9,7 @@ static std::string static_path(const std::string f) {
 namespace config {
 
 /* Modify this to choose network */
-OctoCfg *octocfg = &LeNet5_Reuse;
+OctoCfg *octocfg;
 
 OctoCfg LeNet5 {
     .f_weight=static_path("mnist_weight_dump.txt"),

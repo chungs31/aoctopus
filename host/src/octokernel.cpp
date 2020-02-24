@@ -46,15 +46,13 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     buf_lens.reset(n_bufs);
     bufs.reset(n_bufs);
 
-
-    /*
-    if (input_idx < 0) {
+    /* -2 is code for auto-configure */
+    if (input_idx == -2) {
         input_idx = buffer_mapper(n_bufs, 1);   
     }
-    if (output_idx < 0) {
+    if (output_idx == -2) {
         output_idx = buffer_mapper(n_bufs, 0);
     }
-    */
 
     std::cout << "[DEBUG] kernel " << id << " w name " << kernel_name << ", in: " << input_idx << ", out: " << output_idx << "\n";
     
@@ -74,9 +72,7 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
         checkError(status, "Failed to create buffer for bias");
 
         // Initialize CPU variables
-        //if (i == 2 || i == 4 || i == 5) {
-          host_mems[i].reset(buf_lens[i]);
-        //}
+        host_mems[i].reset(buf_lens[i]);
     }
 
     // This queue is for weight/bias buffer copying only.
@@ -123,7 +119,7 @@ void Octokernel::load_buf(int buf_idx, std::vector<float> &in) {
     }
 }
 
-void Octokernel::copy_weights_to_bufs() {
+void Octokernel::copy_weights_to_bufs(bool use_positional_copy) {
     /* Write kernel weights and biases to the device.
      * This should only be called once.
      */
@@ -132,9 +128,11 @@ void Octokernel::copy_weights_to_bufs() {
     cl_int status;
 
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
-        if (buf_mflags[i] == CL_MEM_READ_ONLY) {
+        int cond = use_positional_copy ? (n_bufs == 5 && (i == 2 || i == 4)) || (n_bufs == 6 && (i == 2 || i == 4 || i == 5)) : buf_mflags[i] == CL_MEM_READ_ONLY;
+        //if (buf_mflags[i] == CL_MEM_READ_ONLY) {
         //if ((n_bufs == 5 && (i == 2 || i == 4)) || (n_bufs == 6 && (i == 2 || i == 4 || i == 5))) {
         //if (buf_mflags[i] == CL_MEM_READ_ONLY) {
+        if (cond) {
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
             status = clEnqueueWriteBuffer(write_queue, bufs[i], CL_FALSE, 0, buf_lens[i] * sizeof(float), host_mems[i], 0, NULL, NULL);
             checkError(status, "Failed to transfer to cl buf");

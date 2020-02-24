@@ -91,7 +91,7 @@ public:
     };
 
     // Copy from host_mems to the CL buffers (bufs).
-    void copy_weights_to_bufs();
+    void copy_weights_to_bufs(bool use_positional_copy);
     static void wait_for_write_queue();
 
     // Set CL arguments

@@ -157,6 +157,10 @@ void MNISTExecutor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<
     printf("\n");
 }
 
+bool MNISTExecutor::use_positional_copy() {
+    return false;
+}
+
 /* MobileNet Executor overriding functions */
 int MobileNetExecutor::map_weights() {
     int weight_idx = 0;
@@ -194,8 +198,8 @@ int MobileNetExecutor::map_weights() {
 void MobileNetExecutor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) {
     Octokernel *last = octokernels[num_kernels- 1];
     for (unsigned i = 0; i < num_inputs; ++i) {
-        printf("%5d/%d\r", i+1, num_inputs);
-        fflush(stdout);
+        //printf("%5d/%d\r", i+1, num_inputs);
+        //fflush(stdout);
 
         // Write input to host memory. Will be copied to buffer in enqueue.
         octokernels[0]->set_input_mem(x_test[i]);
@@ -210,5 +214,9 @@ void MobileNetExecutor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_
         last->copy_output_from_to(d_y[i]);
     }
     printf("\n");
+}
+
+bool MobileNetExecutor::use_positional_copy() {
+    return true;
 }
 
