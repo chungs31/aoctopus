@@ -190,10 +190,9 @@ void Octokernel::enqueue_kernel() {
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
-    if (input_idx >= 0 && is_input_layer && !inputs_copied) {
+    if (input_idx >= 0 && is_input_layer) {
         status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
         checkError(status, "Failed to transfer to cl buf");
-        //inputs_copied = true;
     }
 
     int tmp = 1;
@@ -202,17 +201,6 @@ void Octokernel::enqueue_kernel() {
         status = clSetKernelArg(kernel, i, sizeof(cl_mem), &bufs[i]);
         checkError(status, "Failed to set argument %d", i);
     }
-    /*
-    if (id != num_kernels - 1) {
-        if (weights_copied) {
-            status = clSetKernelArg(kernel, n_bufs, sizeof(int), &tmp);
-        }
-        else {
-            tmp = 0;
-            status = clSetKernelArg(kernel, n_bufs, sizeof(int), &tmp);
-        }
-    }
-    */
 
     // Enqueue kernel.
     // Use a global work size corresponding to the number of elements to add
@@ -471,7 +459,7 @@ void Octokernel::enqueue_kernel(int init) {
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
-    if (input_idx >= 0 && is_input_layer && !inputs_copied) {
+    if (input_idx >= 0 && is_input_layer) {
         status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
         checkError(status, "Failed to transfer to cl buf");
     }

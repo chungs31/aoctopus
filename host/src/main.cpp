@@ -27,6 +27,7 @@ scoped_array<scoped_aligned_ptr<float> > x_test;
 scoped_array<int> y_test;
 
 int TEST_SET_SIZE = 10000;
+bool TEST_RANDOM_INPUT = false;
 
 // Entry point.
 int main(int argc, char **argv) {
@@ -66,6 +67,10 @@ int main(int argc, char **argv) {
 
     if(options.has("n")) {
         TEST_SET_SIZE = options.get<int>("n");
+    }
+
+    if(options.has("r")) {
+        TEST_RANDOM_INPUT = true;
     }
 
     // Initialize OpenCL.
@@ -155,14 +160,16 @@ bool init_opencl(const std::string f_bitstream) {
 }
 
 // Initialize the data for the problem. 
-void init_problem() {
+void init_problem() { 
     if(oclinfo.num_devices == 0) {
         checkError(-1, "No devices");
     }
 
     // Get input data
-    config::octocfg->importer.import_input_data(x_test, y_test);    /* for real data */
-    //config::octocfg->importer->generate_random_input(10000, x_test); /* for random data */
+    if (TEST_RANDOM_INPUT) 
+        config::octocfg->importer.generate_random_input(TEST_SET_SIZE, x_test); /* for random data */
+    else 
+        config::octocfg->importer.import_input_data(x_test, y_test);    /* for real data */
 
     // Map weights to layers.
     int check = config::octocfg->executor->map_weights();
@@ -206,6 +213,10 @@ bool run() {
 
     // Verify
     config::octocfg->executor->predict(d_y, predictions);                      // Calculate predictions
+    if (TEST_RANDOM_INPUT) {
+        return true;
+    }
+
     int incorrect = config::octocfg->executor->verify(predictions, y_test);    // Compare predictions to reference
     float accuracy = ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE);    
     printf("[INFO] Accuracy: %f\n", accuracy);

@@ -54,9 +54,6 @@ private:
     bool weights_copied = false;
     bool is_input_layer = false;
     bool is_output_layer = false;
-    bool inputs_copied = false;
-    
-
 public:
     cl_ulong kernel_time = 0;
     static int num_copied;
