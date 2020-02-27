@@ -100,7 +100,7 @@ int Executor::verify(const scoped_array<int> &y, const scoped_array<int> &y_ref)
     int incorrect = 0;
     for (int i = 0; i < num_inputs; i++) {
         if (y[i] != y_ref[i]) { 
-            printf("[ERROR] input %i, ref predicts %i but device got %i\n", i, y_ref[i], y[i]);
+            //printf("[ERROR] input %i, ref predicts %i but device got %i\n", i, y_ref[i], y[i]);
             incorrect++;
         }
     }
