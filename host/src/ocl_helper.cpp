@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include "ocl_helper.h"
+#include "common.h"
 
 using namespace aocl_utils;
 
