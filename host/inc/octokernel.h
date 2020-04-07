@@ -3,7 +3,7 @@
  *
  * octokernel.h
  *
- * Define the octokernel class. 
+ * Define the octokernel class.
  *
  * Create cl_kernel objects and buffers related to the kernel (layer).
  *
@@ -33,7 +33,7 @@ private:
 #else
     static cl_command_queue q;
 #endif
-    static int num_kernels; 
+    static int num_kernels;
     static cl_command_queue write_queue;
 
 
@@ -62,13 +62,13 @@ public:
     aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float> > host_mems;
     std::vector<cl_mem_flags> buf_mflags;
     //aocl_utils::scoped_array<float> output;
-    
+
     // Public functions
     Octokernel(cl_context &context,
                cl_device_id &device,
-               cl_program &program, 
-               const char *_kernel_name, 
-               //int num_buffers, 
+               cl_program &program,
+               const char *_kernel_name,
+               //int num_buffers,
                std::vector<size_t> const &buffer_sizes,
                std::vector<cl_mem_flags> const &buffer_mflags,
                int output_idx,
@@ -77,7 +77,7 @@ public:
 
     // Copy weights from STL vectors into aligned pointers (host_mems).
     //void load_weights(std::vector<std::vector<float> > &weights);
-    
+
     // Copy contents of in to respective host memory in host_mems.
     void load_buf(int buf_idx, std::vector<float> &in);
 
@@ -99,15 +99,16 @@ public:
     void enqueue_kernel(int init);
     void enqueue_kernel_reuse();
     void enqueue_kernel_reuse(int init);
+    void enqueue_kernel_reuse(std::vector<int> args);
 
-    // Input from vector or aocl_utils::scoped aligned ptr. 
+    // Input from vector or aocl_utils::scoped aligned ptr.
     void set_input_mem(std::vector<float> &in) {
         for (int i = 0; i < buf_lens[input_idx]; i++) {
             host_mems[input_idx][i] = in[i];
         }
         //std::memcpy(host_mems[input_idx], in, buf_lens[input_idx] * sizeof(float));
     };
-    
+
     void set_input_mem(aocl_utils::scoped_aligned_ptr<float> &in) {
         /*
         for (int i = 0; i < buf_lens[input_idx]; i++) {
@@ -123,14 +124,14 @@ public:
 
     int get_output_idx() const { return output_idx; };
     int get_input_idx() const { return input_idx; };
-    size_t get_buf_size(int idx) const { return buf_lens[idx]; }; 
+    size_t get_buf_size(int idx) const { return buf_lens[idx]; };
     int get_n_bufs() const { return n_bufs; };
 
     void copy_output_from_to(aocl_utils::scoped_aligned_ptr<float> &out) {
         //out.reset(buf_lens[output_idx]);
         std::memcpy(out, host_mems[output_idx], buf_lens[output_idx] * sizeof(float));
     }
-   
+
     /*
     void copy_output_from_to_fcn(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float> > &out) {
         while (num_copied < TEST_SET_SIZE) {
@@ -153,6 +154,5 @@ public:
     // debug functions
     void dbg_dump_output();
 };
-    
-#endif
 
+#endif

@@ -55,17 +55,26 @@ OctoCfg MobileNetV2 {
     .f_weight=static_path("inet_mnet_params.txt"),
     .f_bufsizes=static_path("inet_mnet_bufsizes.txt"),
     .cfg_network = ImageNet::MobileNet,
-    //.importer = Importer(1, 224*224*3, static_path("cat224224.db"), static_path("cat224224_y.db")), 
-    .importer = Importer(100, 224*224*3, static_path("imagenet_random.db"), static_path("imagenet_random_y.db")), 
+    .importer = Importer(1, 224*224*3, static_path("cat224224.db"), static_path("cat224224_y.db")),
+    //.importer = Importer(100, 224*224*3, static_path("imagenet_random.db"), static_path("imagenet_random_y.db")),
     .executor = new MobileNetExecutor(100, 1000, 0.0, MobileNetExecutorType::BASE)
+};
+
+OctoCfg MobileNetV2_Isolate {
+    .f_weight=static_path("inet_mnet_params.txt"),
+    .f_bufsizes=static_path("inet_mnet_isolate_bufsizes.txt"),
+    .cfg_network = ImageNet::MobileNet_isolate,
+    .importer = Importer(1, 224*224*3, static_path("cat224224.db"), static_path("cat224224_y.db")),
+    //.importer = Importer(100, 224*224*3, static_path("imagenet_random.db"), static_path("imagenet_random_y.db")),
+    .executor = new MobileNetExecutor(100, 1000, 0.0, MobileNetExecutorType::REUSE)
 };
 
 OctoCfg MobileNetV2_Baseline_Sync {
     .f_weight=static_path("inet_mnet_params.txt"),
     .f_bufsizes=static_path("inet_mnet_bufsizes.txt"),
     .cfg_network = ImageNet::MobileNet,
-    //.importer = Importer(1, 224*224*3, static_path("cat224224.db"), static_path("cat224224_y.db")), 
-    .importer = Importer(100, 224*224*3, static_path("imagenet_random.db"), static_path("imagenet_random_y.db")), 
+    //.importer = Importer(1, 224*224*3, static_path("cat224224.db"), static_path("cat224224_y.db")),
+    .importer = Importer(100, 224*224*3, static_path("imagenet_random.db"), static_path("imagenet_random_y.db")),
     .executor = new MobileNetExecutor(100, 1000, 0.0, MobileNetExecutorType::BASE)
 };
 
@@ -73,7 +82,7 @@ OctoCfg MobileNetV2_Channels {
     .f_weight=static_path("inet_mnet_params.txt"),
     .f_bufsizes=static_path("inet_mnet_channels_bufsizes.txt"),
     .cfg_network = ImageNet::MobileNet_channels,
-    .importer = Importer(1, 224*224*3, static_path("cat224224.db"), static_path("cat224224_y.db")), 
+    .importer = Importer(1, 224*224*3, static_path("cat224224.db"), static_path("cat224224_y.db")),
     .executor = new MobileNetExecutor(1, 1000, 0.0, MobileNetExecutorType::CHANNELS)
 };
 
@@ -94,6 +103,7 @@ cfgs CfgList = {
     {"lenet5_autorun", LeNet5_Autorun},
     {"lenet5_reuse", LeNet5_Reuse},
     {"im_mnetv2_baseline", MobileNetV2},
+    {"im_mnetv2_baseline_isolate", MobileNetV2_Isolate},
     {"im_mnetv2_baseline_sync", MobileNetV2_Baseline_Sync},
     {"im_mnetv2_channels", MobileNetV2_Channels}
     //{"im_squeezenet", SqueezeNet}

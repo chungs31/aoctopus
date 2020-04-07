@@ -17,7 +17,7 @@ int Octokernel::num_kernels = 0;
 int Octokernel::num_copied = 0;
 volatile int Octokernel::num_ready = 0;
 
-Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int _output_idx, int _input_idx) : 
+Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int _output_idx, int _input_idx) :
     device(device),
     program(program),
     buf_mflags(buffer_mflags),
@@ -26,14 +26,14 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     input_idx(_input_idx)
 {
     // Store name of kernel
-    kernel_name = _kernel_name;  
+    kernel_name = _kernel_name;
 
     // Initialize kernel
     id = num_kernels++;
     cl_int status;
     kernel = clCreateKernel(program, _kernel_name, &status);
     checkError(status, "Failed to create kernel");
-    
+
     //cl_uint num_args;
     status = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &n_bufs, NULL);
     //n_bufs;// minus 1 if using globalmem for init
@@ -48,19 +48,19 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
 
     /* -2 is code for auto-configure */
     if (input_idx == -2) {
-        input_idx = buffer_mapper(n_bufs, 1);   
+        input_idx = buffer_mapper(n_bufs, 1);
     }
     if (output_idx == -2) {
         output_idx = buffer_mapper(n_bufs, 0);
     }
 
     std::cout << "[DEBUG] kernel " << id << " w name " << kernel_name << ", in: " << input_idx << ", out: " << output_idx << "\n";
-    
-    for (int i = 0; i < n_bufs; i++) {
+
+    for (int i = 0; i < 6; i++) {
         // Initialize CL buffers
         if (!buffer_sizes.empty())
             buf_lens[i] = buffer_sizes[i];
-        
+
         if (buffer_mflags.empty()) {
             bufs[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, buf_lens[i] * sizeof(float) , NULL, &status);
         }
@@ -97,9 +97,9 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
 }
 
 Octokernel::~Octokernel() {
-    if (kernel) 
+    if (kernel)
         clReleaseKernel(kernel);
-    if (q) 
+    if (q)
         clReleaseCommandQueue(q);
     if (write_queue)
         clReleaseCommandQueue(write_queue);
@@ -186,7 +186,7 @@ void Octokernel::enqueue_kernel() {
 
     //printf("Enqueue on %s\n", kernel_name.c_str());
     //printf("Number of buffers: %d\n",n_bufs);
-    
+
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
@@ -195,7 +195,6 @@ void Octokernel::enqueue_kernel() {
         checkError(status, "Failed to transfer to cl buf");
     }
 
-    int tmp = 1;
     // set arguments
     for (unsigned i = 0; i < n_bufs; i++) {
         status = clSetKernelArg(kernel, i, sizeof(cl_mem), &bufs[i]);
@@ -224,7 +223,7 @@ void Octokernel::enqueue_kernel() {
             &global_work_size, NULL, 0, NULL, &kernel_event); // change 3 to number of writes
     checkError(status, "Failed to launch kernel %s", kernel_name.c_str());
     }
-    
+
     // Read the result. This the final operation.
     if (output_idx >= 0 && is_output_layer) {
     status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
@@ -232,7 +231,7 @@ void Octokernel::enqueue_kernel() {
     checkError(status, "Failed to launch kernel");
     num_ready++;
     }
-   
+
 #ifdef OPENCL_PROFILER_ENABLE
     cl_ulong start, end;
     clFinish(q);
@@ -256,7 +255,7 @@ void Octokernel::enqueue_kernel() {
         clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
         kernel_time += end - start;
     }
-    
+
     if (finish_event) {
 #ifdef INTEL_PROFILER_ENABLE
         clGetProfileInfoIntelFPGA(finish_event);
@@ -271,6 +270,121 @@ void Octokernel::enqueue_kernel() {
     if (kernel_event) clReleaseEvent(kernel_event);
     if (finish_event) clReleaseEvent(finish_event);
 }
+
+void Octokernel::enqueue_kernel_reuse(std::vector<int> args) {
+    // For use with mobilenet for varying ax1/yy/xx/rc bounds for parameterized conv2d.
+    cl_int status;
+    cl_event kernel_event = NULL, finish_event = NULL, write_event = NULL;
+
+    //printf("Enqueue on %s\n", kernel_name.c_str());
+    //printf("Number of buffers: %d\n",n_bufs);
+
+    // Transfer inputs to each device. Each of the host buffers supplied to
+    // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
+    // for the host-to-device transfer.
+    if (input_idx >= 0 && is_input_layer) {
+        status = clEnqueueWriteBuffer(q, bufs[input_idx], CL_FALSE, 0, buf_lens[input_idx]* sizeof(float), host_mems[input_idx], 0, NULL, &write_event);
+        checkError(status, "Failed to transfer to cl buf");
+    }
+
+    // set arguments
+    unsigned i;
+    for (i = 0; i < 6; i++) {
+        status = clSetKernelArg(kernel, i, sizeof(cl_mem), &bufs[i]);
+        checkError(status, "Failed to set argument %d", i);
+    }
+    /*
+    clSetKernelArg(kernel, i++, sizeof(int), &ax1_bound);
+    clSetKernelArg(kernel, i++, sizeof(int), &yy_xx_bound);
+    clSetKernelArg(kernel, i++, sizeof(int), &yy_xx_bound);
+    clSetKernelArg(kernel, i++, sizeof(int), &rc_bound);
+    */
+
+    for (auto &bound : args) {
+        status = clSetKernelArg(kernel, i++, sizeof(int), &bound);
+        checkError(status, "Failed to set argument %d", i);
+    }
+
+
+
+
+    // Enqueue kernel.
+    // Use a global work size corresponding to the number of elements to add
+    // for this device.
+    //
+    // We don't specify a local work size and let the runtime choose
+    // (it'll choose to use one work-group with the same size as the global
+    // work-size).
+    //
+    // Events are used to ensure that the kernel is not launched until
+    // the writes to the input buffers have completed.
+    const size_t global_work_size = 1;
+
+    if (write_event) {
+    status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
+            &global_work_size, NULL, 1, &write_event, &kernel_event); // change 3 to number of writes
+    checkError(status, "Failed to launch kernel %s", kernel_name.c_str());
+    }
+    else {
+    status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
+            &global_work_size, NULL, 0, NULL, &kernel_event); // change 3 to number of writes
+    checkError(status, "Failed to launch kernel %s", kernel_name.c_str());
+    }
+
+    // Read the result. This the final operation.
+    if (output_idx >= 0 && is_output_layer) {
+    status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
+            0, buf_lens[output_idx]* sizeof(float), host_mems[output_idx], 1, &kernel_event, &finish_event);
+    checkError(status, "Failed to launch kernel");
+    num_ready++;
+    }
+
+#ifdef OPENCL_PROFILER_ENABLE
+    cl_ulong start, end;
+    clFinish(q);
+
+    //clGetProfileDataDeviceIntelFPGA(device, program, true, true, (cl_bool) NULL, (size_t) NULL, (void *) NULL, (size_t) NULL, (cl_int *) NULL);
+
+    if (write_event) {
+#ifdef INTEL_PROFILER_ENABLE
+        clGetProfileInfoIntelFPGA(write_event);
+#endif
+        clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        write_time += end - start;
+    }
+
+    if (kernel_event) {
+#ifdef INTEL_PROFILER_ENABLE
+        clGetProfileInfoIntelFPGA(kernel_event);
+#endif
+        clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        kernel_time += end - start;
+    }
+
+    for (const auto &i : args) {
+        printf("%d, ", i);
+    }
+    printf(" : %f ms\n", (double) (end-start) / 1000000.0);
+
+    if (finish_event) {
+#ifdef INTEL_PROFILER_ENABLE
+        clGetProfileInfoIntelFPGA(finish_event);
+#endif
+        clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(finish_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        read_time += end - start;
+    }
+
+
+#endif
+
+    if (write_event) clReleaseEvent(write_event);
+    if (kernel_event) clReleaseEvent(kernel_event);
+    if (finish_event) clReleaseEvent(finish_event);
+}
+
 void Octokernel::enqueue_kernel_reuse() {
     enqueue_kernel_reuse(0);
 }
@@ -299,7 +413,7 @@ void Octokernel::enqueue_kernel_reuse(int init) {
         clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[7]); // first output
         int ax1_bound = 1;
         clSetKernelArg(kernel, argid++, sizeof(int), &ax1_bound);
-        int k_bound = 1; 
+        int k_bound = 1;
         clSetKernelArg(kernel, argid++, sizeof(int), &k_bound);
         int relu_true = 0;
         clSetKernelArg(kernel, argid++, sizeof(int), &relu_true);
@@ -315,7 +429,7 @@ void Octokernel::enqueue_kernel_reuse(int init) {
         clReleaseEvent(k1);
         return;
     }
-        
+
     int argid = 0;
     clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[0]);
     clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[1]);
@@ -323,7 +437,7 @@ void Octokernel::enqueue_kernel_reuse(int init) {
     clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[7]); // first output
     int ax1_bound = 120;
     clSetKernelArg(kernel, argid++, sizeof(int), &ax1_bound);
-    int k_bound = 400; 
+    int k_bound = 400;
     clSetKernelArg(kernel, argid++, sizeof(int), &k_bound);
     int relu_true = 1;
     clSetKernelArg(kernel, argid++, sizeof(int), &relu_true);
@@ -336,7 +450,7 @@ void Octokernel::enqueue_kernel_reuse(int init) {
     status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
             &global_work_size, NULL, 0, NULL, &k1); // change 3 to number of writes
     checkError(status, "Failed to launch kernel %s p1", kernel_name.c_str());
-    
+
     argid = 0;
     clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[7]);
     clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[3]);
@@ -344,7 +458,7 @@ void Octokernel::enqueue_kernel_reuse(int init) {
     clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[8]); // second output
     ax1_bound = 84;
     clSetKernelArg(kernel, argid++, sizeof(int), &ax1_bound);
-    k_bound = 120; 
+    k_bound = 120;
     clSetKernelArg(kernel, argid++, sizeof(int), &k_bound);
     relu_true = 1;
     clSetKernelArg(kernel, argid++, sizeof(int), &relu_true);
@@ -353,11 +467,11 @@ void Octokernel::enqueue_kernel_reuse(int init) {
     done = 0;
     clSetKernelArg(kernel, argid++, sizeof(int), &done);
     clSetKernelArg(kernel, argid++, sizeof(int), &init);
-    
+
     status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
             &global_work_size, NULL, 1, &k1, &k2); // k1 must finish before this
     checkError(status, "Failed to launch kernel %s p2", kernel_name.c_str());
-    
+
     argid = 0;
     clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[8]);
     clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[5]);
@@ -365,7 +479,7 @@ void Octokernel::enqueue_kernel_reuse(int init) {
     clSetKernelArg(kernel, argid++, sizeof(cl_mem), &bufs[9]); // third output
     ax1_bound = 10;
     clSetKernelArg(kernel, argid++, sizeof(int), &ax1_bound);
-    k_bound = 84; 
+    k_bound = 84;
     clSetKernelArg(kernel, argid++, sizeof(int), &k_bound);
     relu_true = 0;
     clSetKernelArg(kernel, argid++, sizeof(int), &relu_true);
@@ -374,11 +488,11 @@ void Octokernel::enqueue_kernel_reuse(int init) {
     done = 1;
     clSetKernelArg(kernel, argid++, sizeof(int), &done);
     clSetKernelArg(kernel, argid++, sizeof(int), &init);
-    
+
     status = clEnqueueNDRangeKernel(q, kernel, 1, NULL,
             &global_work_size, NULL, 1, &k2, &k3); // k1 must finish before this
     checkError(status, "Failed to launch kernel %s p3", kernel_name.c_str());
-    
+
     // Read the result. This the final operation.
     /*if (output_idx >= 0 && is_output_layer) {
     status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
@@ -407,7 +521,7 @@ void Octokernel::enqueue_kernel_reuse(int init) {
     clGetEventProfilingInfo(k3, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
     kernel_time += end - start;
 #endif
-   
+
     clReleaseEvent(k1);
     clReleaseEvent(k2);
     clReleaseEvent(k3);
@@ -421,7 +535,7 @@ void Octokernel::dbg_dump_output() {
     std::ofstream dumpfile(path.c_str());
 
     std::cout << "[DEBUG] Dumping output for kernel " << kernel_name << " with output_idx " << output_idx << std::endl;
-    
+
     cl_int status;
     status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
             0, buf_lens[output_idx]* sizeof(float), host_mems[output_idx], 0, NULL, NULL);
@@ -455,7 +569,7 @@ void Octokernel::enqueue_kernel(int init) {
 
     //printf("Enqueue on %s\n", kernel_name.c_str());
     //printf("Number of buffers: %d\n",n_bufs);
-    
+
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
@@ -494,7 +608,7 @@ void Octokernel::enqueue_kernel(int init) {
             &global_work_size, NULL, 0, NULL, &kernel_event); // change 3 to number of writes
     checkError(status, "Failed to launch kernel %s", kernel_name.c_str());
     }
-    
+
     // Read the result. This the final operation.
     if (output_idx >= 0 && is_output_layer) {
     status = clEnqueueReadBuffer(q, bufs[output_idx], CL_TRUE,
@@ -502,7 +616,7 @@ void Octokernel::enqueue_kernel(int init) {
     checkError(status, "Failed to launch kernel");
     num_ready++;
     }
-   
+
 #ifdef OPENCL_PROFILER_ENABLE
     cl_ulong start, end;
     clFinish(q);
@@ -526,7 +640,7 @@ void Octokernel::enqueue_kernel(int init) {
         clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
         kernel_time += end - start;
     }
-    
+
     if (finish_event) {
 #ifdef INTEL_PROFILER_ENABLE
         clGetProfileInfoIntelFPGA(finish_event);
@@ -542,4 +656,3 @@ void Octokernel::enqueue_kernel(int init) {
     if (finish_event) clReleaseEvent(finish_event);
     //return kernel_event;
 }
-    

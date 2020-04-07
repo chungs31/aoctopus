@@ -5,7 +5,7 @@
 
 using namespace aocl_utils;
 
-// The original run() function refactored from main. 
+// The original run() function refactored from main.
 // Keep for multithreading later.
     //std::thread read_thread = std::thread(&Octokernel::copy_output_from_to_fcn, last, std::ref(d_y));
     /*for(unsigned i = 0; i < TEST_SET_SIZE; ++i) {
@@ -99,7 +99,7 @@ void Executor::predict(const scoped_array<scoped_aligned_ptr<float>> &d_y, scope
 int Executor::verify(const scoped_array<int> &y, const scoped_array<int> &y_ref) {
     int incorrect = 0;
     for (int i = 0; i < num_inputs; i++) {
-        if (y[i] != y_ref[i]) { 
+        if (y[i] != y_ref[i]) {
             //printf("[ERROR] input %i, ref predicts %i but device got %i\n", i, y_ref[i], y[i]);
             incorrect++;
         }
@@ -200,6 +200,12 @@ int MobileNetExecutor::map_weights() {
 
 void MobileNetExecutor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_ptr<float>> &d_y) {
     Octokernel *last = octokernels[num_kernels- 1];
+    std::vector<std::vector<int>> configs = {{64, 112, 112, 32}, {128, 56, 56, 64}, {128, 56, 56, 128}, {256, 28, 28, 128}, {256, 28, 28, 256}, {512, 14, 14, 256}, {512, 14, 14, 512}, {1024, 7, 7, 512}, {1024, 7, 7, 1024}};
+    //std::vector<std::vector<int>> configs = {{64, 56, 0}, {128, 28, 0}, {256, 14, 0}, {512, 7, 0}, {1024, 7, 0}};
+
+    //int ax1_bound, int ij_bound, int ax1_stride, int i_stride, int j_stride, int di_stride
+    //std::vector<std::vector<int>> configs = {{64, 56, 12769, 226, 2, 113}, {128, 28, 3249, 114, 2, 57}, {256, 14, 841, 58, 2, 29}, {512, 7, 225, 30, 2, 15}}; // depth varB
+
     for (unsigned i = 0; i < num_inputs; ++i) {
         //printf("%5d/%d\r", i+1, num_inputs);
         //fflush(stdout);
@@ -209,7 +215,14 @@ void MobileNetExecutor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_
 
         // Enqueue all kernels in order.
         for (int k = 0; k < num_kernels; k++) {
-            octokernels[k]->enqueue_kernel();
+            if (type == MobileNetExecutorType::REUSE) {
+                for (auto &bounds : configs) {
+                    octokernels[k]->enqueue_kernel_reuse(bounds);
+                }
+            }
+            else {
+                octokernels[k]->enqueue_kernel();
+            }
             //octokernels[k]->dbg_dump_output();
         }
 
@@ -222,4 +235,3 @@ void MobileNetExecutor::run(aocl_utils::scoped_array<aocl_utils::scoped_aligned_
 bool MobileNetExecutor::use_positional_copy() {
     return true;
 }
-

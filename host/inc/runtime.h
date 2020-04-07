@@ -26,7 +26,8 @@ enum class MNISTExecutorType {
 
 enum class MobileNetExecutorType {
     BASE,
-    CHANNELS
+    CHANNELS,
+    REUSE
 };
 
 class Executor {
@@ -62,7 +63,7 @@ public:
 
 
 class MobileNetExecutor : public Executor {
-private: 
+private:
     MobileNetExecutorType type;
 public:
     MobileNetExecutor(int n_i, int o_d, float p_t, MobileNetExecutorType t) : Executor(n_i, o_d, p_t), type(t) {};
@@ -73,4 +74,3 @@ public:
 };
 
 #endif /* RUNTIME_H */
-
