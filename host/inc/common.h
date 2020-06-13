@@ -21,6 +21,7 @@ class Layer;
 /* External shared variables
  */
 extern int TEST_SET_SIZE;
+extern bool TEST_RANDOM_INPUT;
 extern cl_ulong kernel_time, write_time, read_time;
 
 /* Configuration

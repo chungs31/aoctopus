@@ -3,12 +3,16 @@
 #include <fstream>
 
 #include "octokernel.h"
+#include "common.h"
+#include "CL/cl_ext_intelfpga.h"
 
 cl_ulong write_time = 0, read_time = 0;
 using namespace aocl_utils;
 
 #ifndef CONCURRENT_EXECUTION
 cl_command_queue Octokernel::q = NULL;
+#else
+std::vector<cl_event> Octokernel::kernel_events;
 #endif
 
 cl_command_queue Octokernel::write_queue = NULL;
@@ -16,14 +20,16 @@ cl_command_queue Octokernel::write_queue = NULL;
 int Octokernel::num_kernels = 0;
 int Octokernel::num_copied = 0;
 volatile int Octokernel::num_ready = 0;
+std::map<std::string, cl_kernel> Octokernel::kernel_table;
 
-Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int _output_idx, int _input_idx) :
+Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &program, const char *_kernel_name, std::vector<size_t> const &buffer_sizes, std::vector<cl_mem_flags> const &buffer_mflags, int _output_idx, int _input_idx, std::vector<int> _extra_args) :
     device(device),
     program(program),
     buf_mflags(buffer_mflags),
 
     output_idx(_output_idx),
-    input_idx(_input_idx)
+    input_idx(_input_idx),
+    extra_args(_extra_args)
 {
     // Store name of kernel
     kernel_name = _kernel_name;
@@ -31,15 +37,24 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
     // Initialize kernel
     id = num_kernels++;
     cl_int status;
+
+    if (kernel_table.find(kernel_name) == kernel_table.end()) {
+        // kernel uninitialized
+        kernel = clCreateKernel(program, _kernel_name, &status);
+        checkError(status, "Failed to create kernel");
+        kernel_table[kernel_name] = kernel; 
+    }
+    else {
+        // kernel found, copy cl_kernel address
+        kernel = kernel_table[kernel_name];
+    }
+
+    /*
     kernel = clCreateKernel(program, _kernel_name, &status);
     checkError(status, "Failed to create kernel");
+    */
 
-    //cl_uint num_args;
     status = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &n_bufs, NULL);
-    //n_bufs;// minus 1 if using globalmem for init
-    if (kernel_name == "write_to_ch7") {
-        n_bufs--;
-    }
     checkError(status, "Failed to get kernel num args");
 
     host_mems.reset(n_bufs);
@@ -56,7 +71,8 @@ Octokernel::Octokernel(cl_context &context, cl_device_id &device, cl_program &pr
 
     std::cout << "[DEBUG] kernel " << id << " w name " << kernel_name << ", in: " << input_idx << ", out: " << output_idx << "\n";
 
-    for (int i = 0; i < 6; i++) {
+    int n_buffer_count = n_bufs - extra_args.size();
+    for (int i = 0; i < n_buffer_count; i++) {
         // Initialize CL buffers
         if (!buffer_sizes.empty())
             buf_lens[i] = buffer_sizes[i];
@@ -113,9 +129,16 @@ Octokernel::~Octokernel() {
     bufs.reset();
 }
 
+static float rand_float() {
+    return ((float(rand()) / float(RAND_MAX)) * (1.0f - -1.0f)) + -1.0f;
+}
+
 void Octokernel::load_buf(int buf_idx, std::vector<float> &in) {
     for (int i = 0; i < buf_lens[buf_idx]; i++) {
-        host_mems[buf_idx][i] = in[i];
+        if (TEST_RANDOM_INPUT) 
+            host_mems[buf_idx][i] = rand_float();
+        else            
+            host_mems[buf_idx][i] = in[i];
     }
 }
 
@@ -128,11 +151,11 @@ void Octokernel::copy_weights_to_bufs(bool use_positional_copy) {
     cl_int status;
 
     for (int i = 0; i < n_bufs; i++) { // exclude the last buffer; this is the output
-        int cond = use_positional_copy ? (n_bufs == 5 && (i == 2 || i == 4)) || (n_bufs == 6 && (i == 2 || i == 4 || i == 5)) : buf_mflags[i] == CL_MEM_READ_ONLY;
+        //int cond = use_positional_copy ? (n_bufs == 5 && (i == 2 || i == 4)) || (n_bufs == 6 && (i == 2 || i == 4 || i == 5)) : buf_mflags[i] == CL_MEM_READ_ONLY;
         //if (buf_mflags[i] == CL_MEM_READ_ONLY) {
-        //if ((n_bufs == 5 && (i == 2 || i == 4)) || (n_bufs == 6 && (i == 2 || i == 4 || i == 5))) {
+        if (i == 2 || i == 4 || i == 5) {
         //if (buf_mflags[i] == CL_MEM_READ_ONLY) {
-        if (cond) {
+        //if (cond) {
             printf("Copying buf %d with len %lu\n", i, buf_lens[i]);
             status = clEnqueueWriteBuffer(write_queue, bufs[i], CL_FALSE, 0, buf_lens[i] * sizeof(float), host_mems[i], 0, NULL, NULL);
             checkError(status, "Failed to transfer to cl buf");
@@ -172,6 +195,7 @@ int buffer_mapper(int n_args, int for_input_idx) {
             case 4:
             case 5:
             case 6:
+            default:
                 ret = 3;
                 break;
         }
@@ -196,9 +220,15 @@ void Octokernel::enqueue_kernel() {
     }
 
     // set arguments
-    for (unsigned i = 0; i < n_bufs; i++) {
+    unsigned i;
+    for (i = 0; i < n_bufs - extra_args.size(); i++) {
         status = clSetKernelArg(kernel, i, sizeof(cl_mem), &bufs[i]);
         checkError(status, "Failed to set argument %d", i);
+    }
+    for (auto &bound : extra_args) {
+        status = clSetKernelArg(kernel, i, sizeof(int), &bound);
+        checkError(status, "Failed to set argument %d", i);
+        i++;
     }
 
     // Enqueue kernel.
@@ -293,20 +323,10 @@ void Octokernel::enqueue_kernel_reuse(std::vector<int> args) {
         status = clSetKernelArg(kernel, i, sizeof(cl_mem), &bufs[i]);
         checkError(status, "Failed to set argument %d", i);
     }
-    /*
-    clSetKernelArg(kernel, i++, sizeof(int), &ax1_bound);
-    clSetKernelArg(kernel, i++, sizeof(int), &yy_xx_bound);
-    clSetKernelArg(kernel, i++, sizeof(int), &yy_xx_bound);
-    clSetKernelArg(kernel, i++, sizeof(int), &rc_bound);
-    */
-
     for (auto &bound : args) {
         status = clSetKernelArg(kernel, i++, sizeof(int), &bound);
         checkError(status, "Failed to set argument %d", i);
     }
-
-
-
 
     // Enqueue kernel.
     // Use a global work size corresponding to the number of elements to add
@@ -339,6 +359,7 @@ void Octokernel::enqueue_kernel_reuse(std::vector<int> args) {
     num_ready++;
     }
 
+#ifndef CONCURRENT_EXECUTION
 #ifdef OPENCL_PROFILER_ENABLE
     cl_ulong start, end;
     clFinish(q);
@@ -379,9 +400,12 @@ void Octokernel::enqueue_kernel_reuse(std::vector<int> args) {
 
 
 #endif
+#else
+    kernel_events.push_back(kernel_event);
+#endif
 
     if (write_event) clReleaseEvent(write_event);
-    if (kernel_event) clReleaseEvent(kernel_event);
+    //if (kernel_event) clReleaseEvent(kernel_event);
     if (finish_event) clReleaseEvent(finish_event);
 }
 

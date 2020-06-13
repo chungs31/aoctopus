@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <map>
 
 #include "CL/opencl.h"
 #include "AOCLUtils/aocl_utils.h"
@@ -26,6 +27,7 @@ private:
     // Kernels
     int id;
     cl_kernel kernel;
+    static std::map<std::string, cl_kernel> kernel_table;
     std::string kernel_name;
 
 #ifdef CONCURRENT_EXECUTION
@@ -54,7 +56,15 @@ private:
     bool weights_copied = false;
     bool is_input_layer = false;
     bool is_output_layer = false;
+
+    // Arguments for execution
+    std::vector<int> extra_args;
 public:
+#ifdef CONCURRENT_EXECUTION
+    static std::vector<cl_event> kernel_events;
+    // vector of all kernel events
+#endif
+    //
     cl_ulong kernel_time = 0;
     static int num_copied;
     volatile static int num_ready;
@@ -72,7 +82,8 @@ public:
                std::vector<size_t> const &buffer_sizes,
                std::vector<cl_mem_flags> const &buffer_mflags,
                int output_idx,
-               int input_idx);
+               int input_idx,
+               std::vector<int> extra_args);
     ~Octokernel();
 
     // Copy weights from STL vectors into aligned pointers (host_mems).
@@ -90,6 +101,7 @@ public:
     // Copy from host_mems to the CL buffers (bufs).
     void copy_weights_to_bufs(bool use_positional_copy);
     static void wait_for_write_queue();
+    void block_on_queue() { clFinish(q); };
 
     // Set CL arguments
     void set_buffer_from_prev(const Octokernel *prev);

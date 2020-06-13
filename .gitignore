@@ -2,6 +2,7 @@ bin/
 *.db
 *.txt
 
+*.swo
 *.swp
 
 # Prerequisites

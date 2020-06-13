@@ -23,6 +23,7 @@ extern Layer SqueezeNet[];
 extern Layer MobileNet[];
 extern Layer MobileNet_isolate[];
 extern Layer MobileNet_channels[];
+extern Layer MobileNet_opt[];
 
 }
 

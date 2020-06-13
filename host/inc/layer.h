@@ -18,6 +18,7 @@ struct Layer {
     std::vector<cl_mem_flags> buf_type;  
     int output_layer_idx;
     int input_layer_idx;
+    std::vector<int> args;
 };
 
 #endif /* LAYER_H */

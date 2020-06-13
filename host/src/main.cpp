@@ -3,8 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <time.h>
 
 #include "CL/opencl.h"
+#include "CL/cl_ext_intelfpga.h"
 #include "AOCLUtils/aocl_utils.h"
 
 #include "common.h"
@@ -71,6 +73,7 @@ int main(int argc, char **argv) {
 
     if(options.has("r")) {
         TEST_RANDOM_INPUT = true;
+        srand(0);
     }
 
     // Initialize OpenCL.
@@ -112,13 +115,14 @@ bool init_opencl(const std::string f_bitstream) {
     // Build the kernels now from the oclinfo.program
     status = clCreateKernelsInProgram(oclinfo.program, max_kernels_supported, kernels, (cl_uint *) &num_kernels);
     printf("Num kernels returned: %d\n", num_kernels);
-    num_kernels = 2;
+    num_kernels = 37;
 
     // If Intel Internal Autorun Profiling is on, have to decrease
 #ifdef INTEL_PROFILER_ENABLE
     num_kernels--;
 #endif
 
+    /*
     for (int kern_id = 0; kern_id < num_kernels; kern_id++) {
         char func_name[128];
         cl_uint num_args;
@@ -130,6 +134,7 @@ bool init_opencl(const std::string f_bitstream) {
 
         printf("kernel name %s has %d arguments\n", func_name, num_args);
     }
+    */
 
     for(unsigned i = 0; i < oclinfo.num_devices; ++i) {
         // Kernel
@@ -146,7 +151,8 @@ bool init_opencl(const std::string f_bitstream) {
                 //bufsizes[kernel],
                 config::octocfg->cfg_network[kernel].buf_type,
                 config::octocfg->cfg_network[kernel].output_layer_idx,
-                config::octocfg->cfg_network[kernel].input_layer_idx
+                config::octocfg->cfg_network[kernel].input_layer_idx,
+                config::octocfg->cfg_network[kernel].args
             ));
             if (kernel > 0) {
                 octokernels[kernel]->set_buffer_from_prev(octokernels[kernel - 1]);
@@ -174,7 +180,7 @@ void init_problem() {
 
     // Map weights to layers.
     int check = config::octocfg->executor->map_weights();
-    //assert(check);
+    assert(check);
 }
 
 bool run() {
@@ -217,6 +223,23 @@ bool run() {
     if (TEST_RANDOM_INPUT) {
         return true;
     }
+#ifdef CONCURRENT_EXECUTION
+    cl_ulong start, end;
+    int kid = 0;
+    for (auto &kernel_event : Octokernel::kernel_events) {
+        octokernels[kid]->block_on_queue();
+#ifdef INTEL_PROFILER_ENABLE
+        //clGetProfileInfoIntelFPGA(kernel_event);
+#endif
+        clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+        clGetEventProfilingInfo(kernel_event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+        octokernels[kid++]->kernel_time += end - start;
+    }
+#ifdef INTEL_PROFILER_ENABLE
+    cl_int err = CL_SUCCESS;
+    clGetProfileDataDeviceIntelFPGA(oclinfo.device[0], oclinfo.program, true, true, false, 0, NULL, NULL, &err);
+#endif
+#endif
 
     int incorrect = config::octocfg->executor->verify(predictions, y_test);    // Compare predictions to reference
     float accuracy = ((float)TEST_SET_SIZE - incorrect)/((float) TEST_SET_SIZE);

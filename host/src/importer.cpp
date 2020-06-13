@@ -115,7 +115,7 @@ void Importer::generate_random_input(int _num_inputs, scoped_array<scoped_aligne
 }
 
 static float rand_float() {
-    return float(rand()) / float(RAND_MAX) * 20.0f - 10.0f;
+    return float(rand()) / (float)(RAND_MAX/1.0);
 }
 
 template <class T>
