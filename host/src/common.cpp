@@ -43,6 +43,14 @@ OctoCfg LeNet5_Autorun {
     .executor = new MNISTExecutor(10000, 10, 0.98, MNISTExecutorType::BASE)
 };
 
+OctoCfg LeNet5_TVM_Autorun {
+    .f_weight=static_path("mnist_weight_dump.txt"),
+    .f_bufsizes="",
+    .cfg_network = LeNet5::new_autorun_network,
+    .importer = Importer(10000, 784, static_path("mnist_test.db"), static_path("mnist_test_y.db")),
+    .executor = new MNISTExecutor(10000, 10, 0.98, MNISTExecutorType::BASE)
+};
+
 OctoCfg LeNet5_Reuse {
     .f_weight=static_path("mnist_weight_dump.txt"),
     .f_bufsizes="",
@@ -92,6 +100,7 @@ cfgs CfgList = {
     {"lenet5_unrolled", LeNet5_Unrolled},
     {"lenet5_channels", LeNet5_Channels},
     {"lenet5_autorun", LeNet5_Autorun},
+    {"lenet5_autorun2", LeNet5_TVM_Autorun},
     {"lenet5_reuse", LeNet5_Reuse},
     {"im_mnetv2_baseline", MobileNetV2},
     {"im_mnetv2_baseline_sync", MobileNetV2_Baseline_Sync},

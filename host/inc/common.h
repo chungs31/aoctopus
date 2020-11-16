@@ -43,6 +43,7 @@ extern OctoCfg LeNet5;
 extern OctoCfg LeNet5_Unrolled;
 extern OctoCfg LeNet5_Channels;
 extern OctoCfg LeNet5_Autorun;
+extern OctoCfg LeNet5_TVM_Autorun;
 extern OctoCfg LeNet5_Reuse;
 
 extern OctoCfg MobileNetV2;

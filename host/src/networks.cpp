@@ -35,6 +35,18 @@ Layer autorun_network[] { // Channels + Autorun Network
     {"fuse_softmax_kernel0", 1, {10}, {w}, 0, -1}
 };
 
+Layer new_autorun_network[] { // Channels + Autorun Network
+    {"fused_nn_conv2d_relu_1_kernel0", 4, {784, 54, 2, 6}, {r, r, rw, r}, -1, 0}, 
+    //{"fused_nn_avg_pool2d_1_kernel0", 0, {}, {}, -1, -1}, 
+    {"fused_nn_conv2d_relu_kernel0", 4, {2, 864, 2, 16}, {rw, r, rw, r}, -1, -1},
+    //{"fused_nn_avg_pool2d_kernel0", 0, {}, {}, -1, -1}, 
+    //{"fused_transpose_nn_batch_flatten_kernel0", 0, {}, {}, -1, -1}, 
+    {"fused_nn_dense_relu_1_kernel0", 4, {2, 48000, 2, 120}, {rw, r, rw, r}, -1, -1},
+    {"fused_nn_dense_relu_kernel0", 4, {2, 10080, 2, 84}, {rw, r, rw, r}, -1, -1},
+    {"fused_nn_dense_nn_bias_add_kernel0", 4, {2, 840, 2, 10}, {rw, r, rw, r}, -1, -1},
+    {"fused_nn_softmax_kernel0", 5, {1, 1, 10, 1, 10}, {rw, rw, rw, rw, w}, 4, -1}
+};
+
 Layer reuse_network[] { // Channels + Autorun Network
     {"fuse_conv2d_relu_kernel0", 3, {784, 54, 6}, {r, r, r}, -1, 0}, 
     {"fuse_conv2d_relu_1_kernel0", 2, {864, 16}, {r, r}, -1, -1},

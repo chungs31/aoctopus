@@ -10,6 +10,7 @@ namespace LeNet5 {
 extern Layer base_network[]; // Default network (Baseline, Unrolled)
 extern Layer channels_network[];
 extern Layer autorun_network[];
+extern Layer new_autorun_network[];
 extern Layer reuse_network[];
 extern Layer reuse_fused_network[];
 extern Layer combined_dense_network[];
