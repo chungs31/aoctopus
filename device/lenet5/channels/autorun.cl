@@ -32,6 +32,8 @@ __kernel void fuse_conv2d_relu_kernel0(
   }
 }
 
+__attribute__((max_global_work_dim(0)))
+__attribute__((autorun))
 __kernel void fuse_avg_pool2d_kernel0() {
   float in[4056];
 
@@ -84,6 +86,8 @@ __kernel void fuse_conv2d_relu_1_kernel0(
   }
 }
 
+__attribute__((max_global_work_dim(0)))
+__attribute__((autorun))
 __kernel void fuse_avg_pool2d_1_kernel0() {
   float in[1936];
   for (int i = 0; i < 1936; ++i) {
@@ -107,6 +111,8 @@ __kernel void fuse_avg_pool2d_1_kernel0() {
   }
 }
 
+__attribute__((max_global_work_dim(0)))
+__attribute__((autorun))
 __kernel void fuse_transpose_flatten_kernel0() {
   float in[400];
   for (int i = 0; i < 400; ++i) {
@@ -130,7 +136,7 @@ __kernel void fuse_dense_relu_kernel0(
 
   for (int ax1 = 0; ax1 < 120; ++ax1) {
     float sum = 0.000000e+00f;
-    #pragma unroll 4
+    #pragma unroll 40
     for (int k = 0; k < 400; ++k) {
       sum += in[k] * input1[((ax1 * 400) + k)];
     }
@@ -149,7 +155,7 @@ __kernel void fuse_dense_relu_1_kernel0(
 
   for (int ax1 = 0; ax1 < 84; ++ax1) {
     float sum = 0.000000e+00f;
-    #pragma unroll 4
+    #pragma unroll 40
     for (int k = 0; k < 120; ++k) {
       sum += in[k] * input1[((ax1 * 120) + k)];
     }
